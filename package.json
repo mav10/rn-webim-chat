@@ -1,0 +1,36 @@
+{
+  "name": "rn-webim-chat",
+  "version": "1.0.0",
+  "description": "React native webim chat wrapper",
+  "main": "js/index.js",
+  "scripts": {
+    "prepare": "rm -rf js && tsc"
+  },
+  "devDependencies": {
+    "@types/react": "*",
+    "@types/react-native": "*",
+    "typescript": "^3.8.3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mav10/rn-webim-chat.git"
+  },
+  "keywords": [
+    "react-native",
+    "webim",
+    "rn",
+    "webim",
+    "chat",
+    "wrapper"
+  ],
+  "author": "Maxim Vasin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mav10/rn-webim-chat/issues"
+  },
+  "homepage": "https://github.com/mav10/rn-webim-chat#readme"
+}
