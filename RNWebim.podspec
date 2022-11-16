@@ -8,7 +8,7 @@ Pod::Spec.new do |s|
   s.summary      = package['description']
   s.license        = package['license']
   s.author         = package['author']
-  s.source       = { :git => "https://github.com/volga-volga/react-native-webim.git", :tag => "v#{s.version}" }
+  s.source       = { :git => "https://github.com/mav10/rn-webim-chat.git", :tag => "v#{s.version}" }
 
   s.homepage     = package['repository']['url']
 

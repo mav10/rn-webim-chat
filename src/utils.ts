@@ -1,4 +1,4 @@
-import {NativeError} from './types';
+import type { NativeError } from './types';
 
 export function parseNativeResponse<T>(response?: T): T | null {
   return response || null;

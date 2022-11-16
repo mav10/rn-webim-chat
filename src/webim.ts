@@ -1,14 +1,20 @@
-import {NativeModules, NativeEventEmitter} from 'react-native';
+import { NativeEventEmitter, NativeModules } from 'react-native';
 import {
-  DialogClearedListener, ErrorListener,
-  NativeError, NewMessageListener, RemoveMessageListener,
-  SessionBuilderParams, TokenUpdatedListener, UpdateMessageListener, WebimEventListener,
+  DialogClearedListener,
+  ErrorListener,
+  NativeError,
+  NewMessageListener,
+  RemoveMessageListener,
+  SessionBuilderParams,
+  TokenUpdatedListener,
+  UpdateMessageListener,
+  WebimEventListener,
   WebimEvents,
   WebimMessage,
 } from './types';
-import {WebimSubscription, processError} from './utils';
+import { processError, WebimSubscription } from './utils';
 
-const {RNWebim: WebimNative} = NativeModules;
+const { RNWebim: WebimNative } = NativeModules;
 const emitter = new NativeEventEmitter(NativeModules.RNWebim);
 
 const DEFAULT_MESSAGES_LIMIT = 100;
@@ -97,7 +103,7 @@ export class RNWebim {
           mime: string;
           extension: string;
         }) => {
-          const {uri, name, mime, extension} = file;
+          const { uri, name, mime, extension } = file;
           try {
             await RNWebim.sendFile(uri, name, mime, extension);
             resolve();

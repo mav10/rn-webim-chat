@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="4cdd5017-8e42-4882-ba3a-a09f32aa7254" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/gradle.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../RNWebim.podspec" beforeDir="false" afterPath="$PROJECT_DIR$/../RNWebim.podspec" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/4.6/fileChanges/last-build.bin" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/4.6/fileHashes/fileHashes.bin" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/4.6/fileHashes/fileHashes.lock" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/5.5/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/5.5/fileHashes/fileHashes.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/vcsWorkingDirs/gc.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/ru/vvdev/webim/WebimModule.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/ru/vvdev/webim/WebimModule.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/webim.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/index.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/index.js.map" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/types.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/types.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/types.js.map" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/utils.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/utils.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/utils.js.map" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/webim.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/webim.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../js/webim.js.map" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/.bin/tsc" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/.bin/tsc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/.bin/tsserver" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/.bin/tsserver" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/prop-types/LICENSE" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/prop-types/LICENSE" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/prop-types/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/prop-types/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/prop-types/index.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/prop-types/index.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/prop-types/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/prop-types/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react-native/BatchedBridge.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react-native/BatchedBridge.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react-native/Devtools.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react-native/Devtools.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react-native/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react-native/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react-native/globals.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react-native/globals.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react-native/index.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react-native/index.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react-native/legacy-properties.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react-native/legacy-properties.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react-native/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react-native/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react/experimental.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react/global.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react/global.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react/index.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react/index.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/react/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/react/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/scheduler/LICENSE" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/scheduler/LICENSE" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/scheduler/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/scheduler/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/scheduler/index.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/scheduler/index.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/@types/scheduler/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/@types/scheduler/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/csstype/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/csstype/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/csstype/index.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/csstype/index.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/csstype/index.js.flow" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/csstype/index.js.flow" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/csstype/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/csstype/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/AUTHORS.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/CODE_OF_CONDUCT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/CopyrightNotice.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/cancellationToken.js" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/cancellationToken.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/cs/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/cs/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/de/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/de/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/diagnosticMessages.generated.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/es/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/es/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/fr/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/fr/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/it/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/it/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/ja/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/ja/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/ko/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/ko/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.dom.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.dom.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.dom.iterable.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.dom.iterable.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.collection.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.collection.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.core.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.core.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.iterable.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.iterable.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.promise.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.promise.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.proxy.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.proxy.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.reflect.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.reflect.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2017.intl.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2017.intl.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2017.sharedmemory.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2017.sharedmemory.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2018.asynciterable.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2018.asynciterable.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2018.intl.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2018.intl.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2019.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2019.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2019.string.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2019.string.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2020.bigint.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2020.bigint.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2020.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2020.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2020.promise.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2020.promise.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2020.symbol.wellknown.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es2020.symbol.wellknown.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es5.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.es5.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.esnext.array.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.esnext.asynciterable.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.esnext.bigint.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.esnext.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.esnext.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.esnext.intl.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.esnext.intl.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.esnext.symbol.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.webworker.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/lib.webworker.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/pl/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/pl/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/protocol.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/protocol.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/pt-br/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/pt-br/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/ru/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/ru/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/tr/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/tr/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/tsc.js" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/tsc.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/tsserver.js" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/tsserver.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/tsserverlibrary.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/tsserverlibrary.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/tsserverlibrary.js" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/tsserverlibrary.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/typescript.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/typescript.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/typescript.js" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/typescript.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/typescriptServices.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/typescriptServices.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/typescriptServices.js" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/typescriptServices.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/typingsInstaller.js" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/typingsInstaller.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/zh-cn/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/zh-cn/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/lib/zh-tw/diagnosticMessages.generated.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/lib/zh-tw/diagnosticMessages.generated.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHS/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHS/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHS/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHS/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHS/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHS/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHT/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHT/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHT/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHT/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHT/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CHT/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CSY/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CSY/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CSY/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CSY/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CSY/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/CSY/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/DEU/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/DEU/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/DEU/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/DEU/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/DEU/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/DEU/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ESN/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ESN/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ESN/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ESN/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ESN/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ESN/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/FRA/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/FRA/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/FRA/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/FRA/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/FRA/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/FRA/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ITA/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ITA/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ITA/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ITA/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ITA/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/ITA/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/JPN/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/JPN/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/JPN/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/JPN/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/JPN/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/JPN/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/KOR/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/KOR/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/KOR/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/KOR/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/KOR/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/KOR/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PLK/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PLK/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PLK/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PLK/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PLK/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PLK/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PTB/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PTB/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PTB/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PTB/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PTB/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/PTB/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/RUS/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/RUS/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/RUS/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/RUS/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/RUS/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/RUS/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/TRK/Targets/ProjectItemsSchema.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/TRK/Targets/TypeScriptCompile.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/TRK/Targets/TypeScriptProjectProperties.xaml.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/TRK/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/TRK/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/loc/lcl/TRK/TypeScriptTasks/TypeScript.Tasks.dll.lcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../node_modules/typescript/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../node_modules/typescript/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/utils.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../src/utils.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/webim.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../src/webim.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../tsconfig.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectId" id="2HcAO27ZltrdOdZdtu1YJeoLMbH" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="RunOnceActivity.cidr.known.project.marker" value="true" />
+    <property name="cidr.known.project.marker" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="4cdd5017-8e42-4882-ba3a-a09f32aa7254" name="Changes" comment="" />
+      <created>1668573962746</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1668573962746</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

@@ -37,7 +37,7 @@ import com.webimapp.android.sdk.WebimError;
 import com.webimapp.android.sdk.WebimSession;
 import com.webimapp.android.sdk.ProvidedAuthorizationTokenStateListener;
 
-@SuppressWarnings("unused")
+@ReactModule(name = ReactNativeMatomoModule.NAME)
 public class WebimModule extends ReactContextBaseJavaModule implements MessageListener, ProvidedAuthorizationTokenStateListener, FatalErrorHandler, NotFatalErrorHandler {
     private static final int FILE_SELECT_CODE = 0;
     private static final String REACT_CLASS = "RNWebim";
