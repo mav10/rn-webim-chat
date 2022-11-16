@@ -19,6 +19,10 @@ if (isNewArchitectureEnabled()) {
   apply plugin: 'com.facebook.react'
 }
 
+def safeExtGet(prop, fallback) {
+  rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
 def getExtOrDefault(name) {
   return rootProject.ext.has(name) ? rootProject.ext.get(name) : project.properties['RnWebimChat_' + name]
 }
@@ -115,7 +119,7 @@ repositories {
   }
 
   if (!found) {
-    throw new GradleException(
+    throw new FileNotFoundException(
       "${project.name}: unable to locate React Native android sources. " +
       "Ensure you have you installed React Native as a dependency in your project and try again."
     )
@@ -125,8 +129,9 @@ repositories {
 
 dependencies {
     //noinspection GradleDynamicVersion
-  implementation "com.facebook.react:react-native:+"
-// From node_modules
+  implementation "com.facebook.react:react-native:${safeExtGet('reactNativeVersion', '+')}"
+  implementation 'ru.webim.sdk:webimclientsdkandroid:3.39.3'
+  // From node_modules
 }
 
 if (isNewArchitectureEnabled()) {
