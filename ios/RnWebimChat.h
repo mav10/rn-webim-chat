@@ -5,8 +5,10 @@
 @interface RnWebimChat : NSObject <NativeRnWebimChatSpec>
 #else
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 
-@interface RnWebimChat : NSObject <RCTBridgeModule>
+@interface RnWebimChat : RCTEventEmitter <UIImagePickerControllerDelegate, UINavigationControllerDelegate, RCTBridgeModule>
 #endif
 
 @end
+
