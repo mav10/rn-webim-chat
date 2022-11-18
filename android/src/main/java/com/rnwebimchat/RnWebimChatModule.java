@@ -54,9 +54,9 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   private MessageTracker tracker;
   private WebimSession session;
 
-  public RnWebimChatModule(ReactApplicationContext reactContext) {
-
-    super(reactContext);
+  public RnWebimChatModule(ReactApplicationContext context) {
+    super(context);
+    reactContext = context;
 
     // todo: чистить cb
     ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
