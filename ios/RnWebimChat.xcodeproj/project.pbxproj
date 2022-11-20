@@ -8,6 +8,20 @@
 
 /* Begin PBXBuildFile section */
 		AE4BB441292A7DF9007BA5F6 /* Webim.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB440292A7DF9007BA5F6 /* Webim.swift */; };
+		AE4BB442292A8095007BA5F6 /* RnWebimChat.mm in Sources */ = {isa = PBXBuildFile; fileRef = B3E7B5891CC2AC0600A0062D /* RnWebimChat.mm */; };
+		AE4BB442292A8095007BA5F6 /* RnWebimChat.h in Sources */ = {isa = PBXBuildFile; fileRef = B3E7B5881CC2AC0600A0062D /* RnWebimChat.h */; };
+		AE4BB443292A80C1007BA5F6 /* Department.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB4292925EF6A007BA5F6 /* Department.swift */; };
+		AE4BB444292A80C5007BA5F6 /* FatalErrorHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB4342925EF6A007BA5F6 /* FatalErrorHandler.swift */; };
+		AE4BB445292A80C8007BA5F6 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB4272925EF6A007BA5F6 /* Message.swift */; };
+		AE4BB446292A80CF007BA5F6 /* MessageListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB42E2925EF6A007BA5F6 /* MessageListener.swift */; };
+		AE4BB447292A80DC007BA5F6 /* MessageStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB42B2925EF6A007BA5F6 /* MessageStream.swift */; };
+		AE4BB448292A80E0007BA5F6 /* MessageTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB42D2925EF6A007BA5F6 /* MessageTracker.swift */; };
+		AE4BB449292A80E3007BA5F6 /* Operator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB4312925EF6A007BA5F6 /* Operator.swift */; };
+		AE4BB44A292A80E6007BA5F6 /* ProvidedAuthorizationTokenStateListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB42C2925EF6A007BA5F6 /* ProvidedAuthorizationTokenStateListener.swift */; };
+		AE4BB44B292A80EA007BA5F6 /* WebimError.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB42A2925EF6A007BA5F6 /* WebimError.swift */; };
+		AE4BB44C292A80EE007BA5F6 /* WebimLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB4282925EF6A007BA5F6 /* WebimLogger.swift */; };
+		AE4BB44D292A80F2007BA5F6 /* WebimRemoteNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB4322925EF6A007BA5F6 /* WebimRemoteNotification.swift */; };
+		AE4BB44E292A80F5007BA5F6 /* WebimSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB42F2925EF6A007BA5F6 /* WebimSession.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -142,7 +156,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AE4BB448292A80E0007BA5F6 /* MessageTracker.swift in Sources */,
+				AE4BB442292A8095007BA5F6 /* RnWebimChat.mm in Sources */,
+				AE4BB44B292A80EA007BA5F6 /* WebimError.swift in Sources */,
+				AE4BB446292A80CF007BA5F6 /* MessageListener.swift in Sources */,
 				AE4BB441292A7DF9007BA5F6 /* Webim.swift in Sources */,
+				AE4BB445292A80C8007BA5F6 /* Message.swift in Sources */,
+				AE4BB444292A80C5007BA5F6 /* FatalErrorHandler.swift in Sources */,
+				AE4BB447292A80DC007BA5F6 /* MessageStream.swift in Sources */,
+				AE4BB44C292A80EE007BA5F6 /* WebimLogger.swift in Sources */,
+				AE4BB44E292A80F5007BA5F6 /* WebimSession.swift in Sources */,
+				AE4BB449292A80E3007BA5F6 /* Operator.swift in Sources */,
+				AE4BB44A292A80E6007BA5F6 /* ProvidedAuthorizationTokenStateListener.swift in Sources */,
+				AE4BB443292A80C1007BA5F6 /* Department.swift in Sources */,
+				AE4BB44D292A80F2007BA5F6 /* WebimRemoteNotification.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -152,6 +179,7 @@
 		58B511ED1A9E6C8500147676 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -203,6 +231,7 @@
 		58B511EE1A9E6C8500147676 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
