@@ -1,6 +1,3 @@
-#ifndef RnWebimChat_h
-#define RnWebimChat_h
-
 #ifdef RCT_NEW_ARCH_ENABLED
 #import "RNRnWebimChatSpec.h"
 

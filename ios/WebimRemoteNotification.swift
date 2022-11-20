@@ -37,6 +37,18 @@ public final class _ObjCWebimRemoteNotification: NSObject {
             return .WIDGET
         case .none:
             return .NONE
+        case .some(.contactInformationRequest):
+            return .CONTACT_INFORMATION_REQUEST
+        case .some(.operatorAccepted):
+            return .OPERATOR_ACCEPTED
+        case .some(.operatorFile):
+            return .OPERATOR_FILE
+        case .some(.operatorMessage):
+            return .OPERATOR_MESSAGE
+        case .some(.widget):
+            return .WIDGET
+        case .some(.rateOperator):
+            return .OPERATOR_RATE
         }
     }
 
@@ -47,6 +59,10 @@ public final class _ObjCWebimRemoteNotification: NSObject {
             case .ADD:
                 return .ADD
             case .DELETE:
+                return .DELETE
+            case .add:
+                return .ADD
+            case .delete:
                 return .DELETE
             }
         }
@@ -69,6 +85,7 @@ public enum _ObjCNotificationType: Int {
     case OPERATOR_ACCEPTED
     case OPERATOR_FILE
     case OPERATOR_MESSAGE
+    case OPERATOR_RATE
     case WIDGET
     case NONE
 }

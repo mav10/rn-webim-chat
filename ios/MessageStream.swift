@@ -42,17 +42,17 @@ public final class _ObjCMessageStream: NSObject {
     @objc(getVisitSessionState)
     public func getVisitSessionState() -> _ObjCVisitSessionState {
         switch messageStream.getVisitSessionState() {
-        case .CHAT:
+        case .chat:
             return .CHAT
-        case .DEPARTMENT_SELECTION:
+        case .departmentSelection:
             return .DEPARTMENT_SELECTION
-        case .IDLE:
+        case .idle:
             return .IDLE
-        case .IDLE_AFTER_CHAT:
+        case .idleAfterChat:
             return .IDLE_AFTER_CHAT
-        case .OFFLINE_MESSAGE:
+        case .offlineMessage:
             return .OFFLINE_MESSAGE
-        case .UNKNOWN:
+        case .unknown:
             return .UNKNOWN
         }
     }
@@ -537,6 +537,7 @@ public enum _ObjCChatState: Int {
     case NONE
     case QUEUE
     case UNKNOWN
+    case CLOSED
 }
 
 // MARK: - OnlineStatus
@@ -598,6 +599,9 @@ public enum _ObjCSendFileError: Int, Error {
     case FILE_TYPE_NOT_ALLOWED
     case UPLOADED_FILE_NOT_FOUND
     case UNKNOWN
+    case FILE_SIZE_SMALL
+    case MAX_FILES_COUNT_PER_CHAT_EXCEEDED
+    case UNAUTHORIZED
 }
 
 // MARK: - RateOperatorError
@@ -633,17 +637,17 @@ fileprivate final class DataMessageCompletionHandlerWrapper: DataMessageCompleti
     func onFailure(messageID: String, error: DataMessageError) {
         var objCError: _ObjCDataMessageError?
         switch error {
-        case .QUOTED_MESSAGE_CANNOT_BE_REPLIED:
+        case .quotedMessageCanNotBeReplied:
             objCError = .QUOTED_MESSAGE_CANNOT_BE_REPLIED
-        case .QUOTED_MESSAGE_FROM_ANOTHER_VISITOR:
+        case .quotedMessageFromAnotherVisitor:
             objCError = .QUOTED_MESSAGE_FROM_ANOTHER_VISITOR
-        case .QUOTED_MESSAGE_MULTIPLE_IDS:
+        case .quotedMessageMultipleIds:
             objCError = .QUOTED_MESSAGE_MULTIPLE_IDS
-        case .QUOTED_MESSAGE_REQUIRED_ARGUMENTS_MISSING:
+        case .quotedMessageRequiredArgumentsMissing:
             objCError = .QUOTED_MESSAGE_REQUIRED_ARGUMENTS_MISSING
-        case .QUOTED_MESSAGE_WRONG_ID:
+        case .quotedMessageWrongId:
             objCError = .QUOTED_MESSAGE_WRONG_ID
-        case .UNKNOWN:
+        case .unknown:
             objCError = .UNKNOWN
         }
 
@@ -676,17 +680,17 @@ fileprivate final class EditMessageCompletionHandlerWrapper: EditMessageCompleti
     func onFailure(messageID: String, error: EditMessageError) {
         var objCError: _ObjCEditMessageError?
         switch error {
-        case .NOT_ALLOWED:
+        case .notAllowed:
             objCError = .NOT_ALLOWED
-        case .MESSAGE_EMPTY:
+        case .messageEmpty:
             objCError = .MESSAGE_EMPTY
-        case .MESSAGE_NOT_OWNED:
+        case .messageNotOwned:
             objCError = .MESSAGE_NOT_OWNED
-        case .MAX_LENGTH_EXCEEDED:
+        case .maxLengthExceeded:
             objCError = .MAX_LENGTH_EXCEEDED
-        case .WRONG_MESSAGE_KIND:
+        case .wrongMesageKind:
             objCError = .WRONG_MESSAGE_KIND
-        case .UNKNOWN:
+        case .unknown:
             objCError = .UNKNOWN
         }
 
@@ -719,13 +723,13 @@ fileprivate final class DeleteMessageCompletionHandlerWrapper: DeleteMessageComp
     func onFailure(messageID: String, error: DeleteMessageError) {
         var objCError: _ObjCDeleteMessageError?
         switch error {
-        case .UNKNOWN:
+        case .unknown:
             objCError = .UNKNOWN
-        case .NOT_ALLOWED:
+        case .notAllowed:
             objCError = .NOT_ALLOWED
-        case .MESSAGE_NOT_OWNED:
+        case .messageNotOwned:
             objCError = .MESSAGE_NOT_OWNED
-        case .MESSAGE_NOT_FOUND:
+        case .messageNotFound:
             objCError = .MESSAGE_NOT_FOUND
         }
 
@@ -759,14 +763,22 @@ fileprivate final class SendFileCompletionHandlerWrapper: SendFileCompletionHand
                    error: SendFileError) {
         var objCError: _ObjCSendFileError?
         switch error {
-        case .FILE_SIZE_EXCEEDED:
+        case .fileSizeExceeded:
             objCError = .FILE_SIZE_EXCEEDED
-        case .FILE_TYPE_NOT_ALLOWED:
+        case .fileTypeNotAllowed:
             objCError = .FILE_TYPE_NOT_ALLOWED
-        case .UPLOADED_FILE_NOT_FOUND:
+        case .uploadedFileNotFound:
             objCError = .UPLOADED_FILE_NOT_FOUND
-        case .UNKNOWN:
+        case .unknown:
             objCError = .UNKNOWN
+        case .fileSizeTooSmall:
+            objCError = .FILE_SIZE_EXCEEDED
+        case .maxFilesCountPerChatExceeded:
+            objCError = .MAX_FILES_COUNT_PER_CHAT_EXCEEDED
+        case .unknown:
+            objCError = .UNKNOWN
+        case .unauthorized:
+            objCError = .UNAUTHORIZED
         }
 
         sendFileCompletionHandler?.onFailure(messageID: messageID,
@@ -798,10 +810,12 @@ fileprivate final class RateOperatorCompletionHandlerWrapper: RateOperatorComple
     func onFailure(error: RateOperatorError) {
         var objCError: _ObjCRateOperatorError?
         switch error {
-        case .NO_CHAT:
+        case .noChat:
             objCError = .NO_CHAT
-        case .WRONG_OPERATOR_ID:
+        case .wrongOperatorId:
             objCError = .WRONG_OPERATOR_ID
+        case .noteIsTooLong:
+            objCError = .none
         }
 
         rateOperatorCompletionHandler?.onFailure(error: objCError!)
@@ -826,33 +840,33 @@ fileprivate final class VisitSessionStateListenerWrapper: VisitSessionStateListe
                  to newState: VisitSessionState) {
         var previousObjCVisitSessionState: _ObjCVisitSessionState?
         switch previousState {
-        case .CHAT:
+        case .chat:
             previousObjCVisitSessionState = .CHAT
-        case .DEPARTMENT_SELECTION:
+        case .departmentSelection:
             previousObjCVisitSessionState = .DEPARTMENT_SELECTION
-        case .IDLE:
+        case .idle:
             previousObjCVisitSessionState = .IDLE
-        case .IDLE_AFTER_CHAT:
+        case .idleAfterChat:
             previousObjCVisitSessionState = .IDLE_AFTER_CHAT
-        case .OFFLINE_MESSAGE:
+        case .offlineMessage:
             previousObjCVisitSessionState = .OFFLINE_MESSAGE
-        case .UNKNOWN:
+        case .unknown:
             previousObjCVisitSessionState = .UNKNOWN
         }
 
         var newObjCVisitSessionState: _ObjCVisitSessionState?
         switch previousState {
-        case .CHAT:
+        case .chat:
             newObjCVisitSessionState = .CHAT
-        case .DEPARTMENT_SELECTION:
+        case .departmentSelection:
             newObjCVisitSessionState = .DEPARTMENT_SELECTION
-        case .IDLE:
+        case .idle:
             newObjCVisitSessionState = .IDLE
-        case .IDLE_AFTER_CHAT:
+        case .idleAfterChat:
             newObjCVisitSessionState = .IDLE_AFTER_CHAT
-        case .OFFLINE_MESSAGE:
+        case .offlineMessage:
             newObjCVisitSessionState = .OFFLINE_MESSAGE
-        case .UNKNOWN:
+        case .unknown:
             newObjCVisitSessionState = .UNKNOWN
         }
 
@@ -879,42 +893,46 @@ fileprivate final class ChatStateListenerWrapper: ChatStateListener {
                  to newState: ChatState) {
         var previousObjCChatState: _ObjCChatState?
         switch previousState {
-        case .CHATTING:
+        case .chatting:
             previousObjCChatState = .CHATTING
-        case .CHATTING_WITH_ROBOT:
+        case .chattingWithRobot:
             previousObjCChatState = .CHATTING_WITH_ROBOT
-        case .CLOSED_BY_OPERATOR:
+        case .closedByOperator:
             previousObjCChatState = .CLOSED_BY_OPERATOR
-        case .CLOSED_BY_VISITOR:
+        case .closedByVisitor:
             previousObjCChatState = .CLOSED_BY_VISITOR
-        case .INVITATION:
+        case .invitation:
             previousObjCChatState = .INVITATION
         case .NONE:
             previousObjCChatState = .NONE
-        case .QUEUE:
+        case .queue:
             previousObjCChatState = .QUEUE
-        case .UNKNOWN:
+        case .unknown:
             previousObjCChatState = .UNKNOWN
+        case .closed:
+            previousObjCChatState = .CLOSED
         }
 
         var newObjCChatState: _ObjCChatState?
         switch newState {
-        case .CHATTING:
+        case .chatting:
             newObjCChatState = .CHATTING
-        case .CHATTING_WITH_ROBOT:
+        case .chattingWithRobot:
             newObjCChatState = .CHATTING_WITH_ROBOT
-        case .CLOSED_BY_OPERATOR:
+        case .closedByOperator:
             newObjCChatState = .CLOSED_BY_OPERATOR
-        case .CLOSED_BY_VISITOR:
+        case .closedByVisitor:
             newObjCChatState = .CLOSED_BY_VISITOR
-        case .INVITATION:
+        case .invitation:
             newObjCChatState = .INVITATION
         case .NONE:
             newObjCChatState = .NONE
-        case .QUEUE:
+        case .queue:
             newObjCChatState = .QUEUE
-        case .UNKNOWN:
+        case .unknown:
             newObjCChatState = .UNKNOWN
+        case .closed:
+            newObjCChatState = .CLOSED
         }
 
         chatStateListener.changed(state: previousObjCChatState!,
@@ -1036,6 +1054,16 @@ fileprivate final class OnlineStatusChangeListenerWrapper: OnlineStatusChangeLis
             previousObjCOnlineStatus = .ONLINE
         case .UNKNOWN:
             previousObjCOnlineStatus = .UNKNOWN
+        case .busyOffline:
+            previousObjCOnlineStatus = .BUSY_OFFLINE
+        case .busyOnline:
+            previousObjCOnlineStatus = .BUSY_ONLINE
+        case .offline:
+            previousObjCOnlineStatus = .OFFLINE
+        case .online:
+            previousObjCOnlineStatus = .ONLINE
+        case .unknown:
+            previousObjCOnlineStatus = .UNKNOWN
         }
 
         var newObjCOnlineStatus: _ObjCOnlineStatus?
@@ -1049,6 +1077,16 @@ fileprivate final class OnlineStatusChangeListenerWrapper: OnlineStatusChangeLis
         case .ONLINE:
             newObjCOnlineStatus = .ONLINE
         case .UNKNOWN:
+            newObjCOnlineStatus = .UNKNOWN
+        case .busyOffline:
+            newObjCOnlineStatus = .BUSY_OFFLINE
+        case .busyOnline:
+            newObjCOnlineStatus = .BUSY_ONLINE
+        case .offline:
+            newObjCOnlineStatus = .OFFLINE
+        case .online:
+            newObjCOnlineStatus = .ONLINE
+        case .unknown:
             newObjCOnlineStatus = .UNKNOWN
         }
 

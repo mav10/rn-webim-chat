@@ -46,6 +46,16 @@ public final class _ObjCDepartment: NSObject {
             return .ONLINE
         case .UNKNOWN:
             return .UNKNOWN
+        case .busyOffline:
+            return .BUSY_OFFLINE
+        case .busyOnline:
+            return .BUSY_ONLINE
+        case .offline:
+            return .OFFLINE
+        case .online:
+            return .ONLINE
+        case .unknown:
+            return .UNKNOWN
         }
     }
 

@@ -25,7 +25,7 @@ public final class _ObjCMessage: NSObject {
 
     @objc(getAttachment)
     public func getAttachment() -> _ObjCMessageAttachment? {
-        if let attachment = message.getAttachment() {
+        if let attachment = message.getData()?.getAttachment() {
             return _ObjCMessageAttachment(messageAttachment: attachment)
         }
 
@@ -34,7 +34,7 @@ public final class _ObjCMessage: NSObject {
 
     @objc(getData)
     public func getData() -> [String: Any]? {
-        if let data = message.getData() {
+        if let data = message.getRawData() {
             var objCData = [String: Any]()
             for key in data.keys {
                 if let value = data[key] {
@@ -71,9 +71,9 @@ public final class _ObjCMessage: NSObject {
     @objc(getSendStatus)
     public func getSendStatus() -> _ObjCMessageSendStatus {
         switch message.getSendStatus() {
-        case .SENDING:
+        case .sending:
             return .SENDING
-        case .SENT:
+        case .sent:
             return .SENT
         }
     }
@@ -91,26 +91,28 @@ public final class _ObjCMessage: NSObject {
     @objc(getType)
     public func getType() -> _ObjCMessageType {
         switch message.getType() {
-        case .ACTION_REQUEST:
+        case .actionRequest:
             return .ACTION_REQUEST
-        case .CONTACTS_REQUEST:
+        case .contactInformationRequest:
             return .CONTACTS_REQUEST
-        case .FILE_FROM_OPERATOR:
+        case .fileFromOperator:
             return .FILE_FROM_OPERATOR
-        case .FILE_FROM_VISITOR:
+        case .fileFromVisitor:
             return .FILE_FROM_VISITOR
-        case .INFO:
+        case .info:
             return .INFO
-        case .OPERATOR:
+        case .operatorMessage:
             return .OPERATOR
-        case .OPERATOR_BUSY:
+        case .operatorBusy:
             return .OPERATOR_BUSY
-        case .VISITOR:
+        case .visitorMessage:
             return .VISITOR
-        case .KEYBOARD:
+        case .keyboard:
             return .KEYBOARD
-        case .KEYBOARD_RESPONSE:
+        case .keyboardResponse:
             return .KEYBOARD_RESPONSE
+        case .stickerVisitor:
+            return .VISITOR_STICKER
         }
     }
 
@@ -149,17 +151,17 @@ public final class _ObjCMessageAttachment: NSObject {
 
     @objc(getContentType)
     public func getContentType() -> String {
-        return messageAttachment.getContentType()
+        return messageAttachment.getFileInfo().getContentType() ?? ""
     }
 
     @objc(getFileName)
     public func getFileName() -> String {
-        return messageAttachment.getFileName()
+        return messageAttachment.getFileInfo().getFileName()
     }
 
     @objc(getImageInfo)
     public func getImageInfo() -> _ObjCImageInfo? {
-        if let imageInfo = messageAttachment.getImageInfo() {
+        if let imageInfo = messageAttachment.getFileInfo().getImageInfo() {
             return _ObjCImageInfo(imageInfo: imageInfo)
         }
 
@@ -168,12 +170,12 @@ public final class _ObjCMessageAttachment: NSObject {
 
     @objc(getSize)
     public func getSize() -> NSNumber? {
-        return messageAttachment.getSize() as NSNumber?
+        return messageAttachment.getFileInfo().getSize() as NSNumber?
     }
 
     @objc(getURL)
-    public func getURL() -> URL {
-        return messageAttachment.getURL()
+    public func getURL() -> URL? {
+        return messageAttachment.getFileInfo().getURL()
     }
 
 }
@@ -223,6 +225,7 @@ public enum _ObjCMessageType: Int {
     case OPERATOR
     case OPERATOR_BUSY
     case VISITOR
+    case VISITOR_STICKER
     case KEYBOARD
     case KEYBOARD_RESPONSE
 }
