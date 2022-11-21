@@ -67,7 +67,7 @@ RCT_EXPORT_METHOD(resumeSession:(NSDictionary*) builderData reject:(RCTResponseS
         }
         if (pushToken != nil) {
             sessionBuilder = [sessionBuilder setDeviceToken:pushToken];
-            sessionBuilder = [sessionBuilder setRemoteNotificationSystem:0];
+            sessionBuilder = [sessionBuilder setRemoteNotificationSystem:RemoteNotificationSystemAPNS];
         }
         sessionBuilder = [sessionBuilder setIsVisitorDataClearingEnabled:true];
         sessionBuilder = [sessionBuilder setIsLocalHistoryStoragingEnabled:false];
@@ -170,9 +170,10 @@ RCT_EXPORT_METHOD(getAllMessages:(RCTResponseSenderBlock) reject resolve:(RCTRes
 RCT_EXPORT_METHOD(rateOperator:(NSNumber*) rating reject:(RCTResponseSenderBlock) reject resolve:(RCTResponseSenderBlock) resolve) {
     if (stream) {
         NSError *err = nil;
-        Operator* operator = [stream getCurrentOperator];
-        [stream rateOperatorWithID: [operator getID] byRating:[rating intValue]
-                 completionHandler:(id<RateOperatorCompletionHandler>)self error:&err];
+        // TODO: fix me
+//        Operator* operator = [stream getCurrentOperator];
+//        [stream rateOperatorWithID: [operator getID] byRating:[rating intValue]
+//                 completionHandler:(id<RateOperatorCompletionHandler>)self error:&err];
         if (err) {
             reject(@[@{ @"message": [err localizedDescription] }]);
         } else {

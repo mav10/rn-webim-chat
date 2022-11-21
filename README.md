@@ -10,7 +10,10 @@ yarn add rn-webim-chat
 
 iOS
 - add to PodFile     `use_frameworks!`
+- add `WebimClientLibrary` to Podfile with specific version (_Wrapper was written for v3.37.4_)
 - pod install
+
+see [example](./example/ios/Podfile)
 
 **Note:** Flipper doesn't work with use_frameworks flag
 

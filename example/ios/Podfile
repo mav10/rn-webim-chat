@@ -17,8 +17,8 @@ target 'RnWebimChatExample' do
     # Hermes is now enabled by default. Disable by setting this flag to false.
     # Upcoming versions of React Native may rely on get_default_flags(), but
     # we make it explicit here to aid in the React Native upgrade process.
-    :hermes_enabled => true,
-    :fabric_enabled => flags[:fabric_enabled],
+    :hermes_enabled => false,
+    :fabric_enabled => false,
     # Enables Flipper.
     #
     # Note that if you have use_frameworks! enabled, Flipper will not work and
@@ -27,6 +27,7 @@ target 'RnWebimChatExample' do
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
+  # Comment the next line if you don't want to use dynamic frameworks
   use_frameworks!
   pod 'WebimClientLibrary', :git => 'https://github.com/webim/webim-client-sdk-ios.git', :tag => '3.37.4'
 
