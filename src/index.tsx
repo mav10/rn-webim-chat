@@ -7,10 +7,11 @@ import {
 import type {
   DialogClearedListener,
   ErrorListener,
-  NativeError,
+  WebimNativeError,
   NewMessageListener,
   RemoveMessageListener,
   SessionBuilderParams,
+  StateListener,
   TokenUpdatedListener,
   UpdateMessageListener,
   WebimEventListener,
@@ -45,7 +46,7 @@ export class RNWebim {
     return new Promise((resolve, reject) => {
       RnWebimChat.resumeSession(
         params,
-        (error: NativeError) => reject(processError(error)),
+        (error: WebimNativeError) => reject(processError(error)),
         () => resolve()
       );
     });
@@ -55,7 +56,7 @@ export class RNWebim {
     return new Promise((resolve, reject) => {
       RnWebimChat.destroySession(
         clearData,
-        (error: NativeError) => reject(processError(error)),
+        (error: WebimNativeError) => reject(processError(error)),
         resolve
       );
     });
@@ -67,7 +68,7 @@ export class RNWebim {
     return new Promise((resolve, reject) => {
       RnWebimChat.getLastMessages(
         limit,
-        (error: NativeError) => reject(processError(error)),
+        (error: WebimNativeError) => reject(processError(error)),
         (messages: { messages: WebimMessage[] }) => resolve(messages)
       );
     });
@@ -79,7 +80,7 @@ export class RNWebim {
     return new Promise((resolve, reject) => {
       RnWebimChat.getNextMessages(
         limit,
-        (error: NativeError) => reject(processError(error)),
+        (error: WebimNativeError) => reject(processError(error)),
         (messages: { messages: WebimMessage[] }) => resolve(messages)
       );
     });
@@ -88,7 +89,7 @@ export class RNWebim {
   static getAllMessages(): Promise<{ messages: WebimMessage[] }> {
     return new Promise((resolve, reject) => {
       RnWebimChat.getAllMessages(
-        (error: NativeError) => reject(processError(error)),
+        (error: WebimNativeError) => reject(processError(error)),
         (messages: { messages: WebimMessage[] }) => resolve(messages)
       );
     });
@@ -98,7 +99,7 @@ export class RNWebim {
     return new Promise((resolve, reject) =>
       RnWebimChat.send(
         message,
-        (error: NativeError) => reject(processError(error)),
+        (error: WebimNativeError) => reject(processError(error)),
         (id: string) => resolve(id)
       )
     );
@@ -108,7 +109,7 @@ export class RNWebim {
     return new Promise((resolve, reject) => {
       RnWebimChat.rateOperator(
         rate,
-        (error: NativeError) => reject(processError(error)),
+        (error: WebimNativeError) => reject(processError(error)),
         resolve
       );
     });
@@ -117,7 +118,7 @@ export class RNWebim {
   static tryAttachFile() {
     return new Promise((resolve, reject) => {
       RnWebimChat.tryAttachFile(
-        (error: NativeError) => reject(processError(error)),
+        (error: WebimNativeError) => reject(processError(error)),
         async (file: {
           uri: string;
           name: string;
@@ -191,6 +192,11 @@ export class RNWebim {
 
   public static addErrorListener(listener: ErrorListener): WebimSubscription {
     const subscription = emitter.addListener(WebimEvents.ERROR, listener);
+    return new WebimSubscription(() => RNWebim.removeListener(subscription));
+  }
+
+  public static addSateListener(listener: StateListener): WebimSubscription {
+    const subscription = emitter.addListener(WebimEvents.STATE, listener);
     return new WebimSubscription(() => RNWebim.removeListener(subscription));
   }
 

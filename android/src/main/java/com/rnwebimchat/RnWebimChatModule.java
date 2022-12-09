@@ -44,7 +44,7 @@ import ru.webim.android.sdk.WebimSession;
 
 @ReactModule(name = RnWebimChatModule.NAME)
 public class RnWebimChatModule extends ReactContextBaseJavaModule implements
-  MessageListener, ProvidedAuthorizationTokenStateListener, FatalErrorHandler, NotFatalErrorHandler {
+  MessageListener, ProvidedAuthorizationTokenStateListener, FatalErrorHandler, NotFatalErrorHandler, MessageStream.OnlineStatusChangeListener {
   public static final String NAME = "RnWebimChat";
   private static final int FILE_SELECT_CODE = 0;
   private static ReactApplicationContext reactContext = null;
@@ -53,6 +53,8 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   private Callback fileCbFailure;
   private MessageTracker tracker;
   private WebimSession session;
+
+
 
   public RnWebimChatModule(ReactApplicationContext context) {
     super(context);
@@ -166,6 +168,10 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     }
 
     if (session == null) {
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "Resume null session");
+      errorBody.putString("errorCode", "NULL_SESSION");
+      errorBody.putString("errorType", "fatal");
       errorCallback.invoke(getSimpleMap("message", "resume null session"));
     }
     session.resume();
@@ -192,17 +198,59 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   @ReactMethod
   public void getLastMessages(int limit, final Callback errorCallback, final Callback successCallback) {
-    tracker.getLastMessages(limit, getMessagesCallback(successCallback));
+    try {
+      tracker.getLastMessages(limit, getMessagesCallback(successCallback));
+    } catch (NullPointerException e) {
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "Can not read all messages");
+      errorBody.putString("errorCode", "NULL_SESSION");
+      errorBody.putString("errorType", "fatal");
+      errorCallback.invoke(errorBody);
+    } catch (Exception e) {
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "Can not get last messages");
+      errorBody.putString("errorCode", FatalErrorType.UNKNOWN.name());
+      errorBody.putString("errorType", "fatal");
+      errorCallback.invoke(errorBody);
+    }
   }
 
   @ReactMethod
   public void getNextMessages(int limit, final Callback errorCallback, final Callback successCallback) {
-    tracker.getNextMessages(limit, getMessagesCallback(successCallback));
+    try {
+      tracker.getNextMessages(limit, getMessagesCallback(successCallback));
+    } catch (NullPointerException e) {
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "Can not get next messages");
+      errorBody.putString("errorCode", "NULL_SESSION");
+      errorBody.putString("errorType", "fatal");
+      errorCallback.invoke(errorBody);
+    } catch (Exception e) {
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "Can not read all messages");
+      errorBody.putString("errorCode", FatalErrorType.UNKNOWN.name());
+      errorBody.putString("errorType", "fatal");
+      errorCallback.invoke(errorBody);
+    }
   }
 
   @ReactMethod
   public void getAllMessages(final Callback errorCallback, final Callback successCallback) {
-    tracker.getAllMessages(getMessagesCallback(successCallback));
+    try {
+      tracker.getAllMessages(getMessagesCallback(successCallback));
+    } catch (NullPointerException e) {
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "Can not read all messages");
+      errorBody.putString("errorCode", "NULL_SESSION");
+      errorBody.putString("errorType", "fatal");
+      errorCallback.invoke(errorBody);
+    } catch (Exception e) {
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "Can not read all messages");
+      errorBody.putString("errorCode", FatalErrorType.UNKNOWN.name());
+      errorBody.putString("errorType", "fatal");
+      errorCallback.invoke(errorBody);
+    }
   }
 
   @ReactMethod
@@ -217,11 +265,19 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
         @Override
         public void onFailure(@NonNull WebimError<RateOperatorError> rateOperatorError) {
-          errorCallback.invoke(getSimpleMap("message", rateOperatorError.getErrorString()));
+          WritableMap errorBody = Arguments.createMap();
+          errorBody.putString("message", rateOperatorError.getErrorString());
+          errorBody.putString("errorCode", rateOperatorError.getErrorType().name());
+          errorBody.putString("errorType", "fatal");
+          errorCallback.invoke(errorBody);
         }
       });
     } else {
-      errorCallback.invoke(getSimpleMap("message", "no operator"));
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "no operator");
+      errorBody.putString("errorCode", MessageStream.RateOperatorCallback.RateOperatorError.OPERATOR_NOT_IN_CHAT.name());
+      errorBody.putString("errorType", "common");
+      errorCallback.invoke(errorBody);
     }
   }
 
@@ -301,13 +357,31 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   @ReactMethod
   public void send(String message, final Callback failureCb, final Callback successCb) {
-    session.getStream().sendMessage(message);
-    successCb.invoke();
+    try {
+      session.getStream().sendMessage(message);
+      successCb.invoke();
+    } catch (NullPointerException e) {
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "Can not send message");
+      errorBody.putString("errorCode", "NULL_SESSION");
+      errorBody.putString("errorType", "fatal");
+      failureCb.invoke(errorBody);
+    } catch (Exception e) {
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "Can not send message");
+      errorBody.putString("errorCode", FatalErrorType.UNKNOWN.name());
+      errorBody.putString("errorType", "fatal");
+      failureCb.invoke(errorBody);
+    }
   }
 
   @Override
   public void onError(@NonNull WebimError<FatalErrorType> error) {
-    emitDeviceEvent("error", getSimpleMap("message", error.getErrorString()));
+    WritableMap errorBody = Arguments.createMap();
+    errorBody.putString("message", error.getErrorString());
+    errorBody.putString("errorCode", error.getErrorType().name());
+    errorBody.putString("errorType", "fatal");
+    emitDeviceEvent("error", errorBody);
   }
 
   @Override
@@ -340,12 +414,24 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   @Override
   public void onNotFatalError(@NonNull WebimError<NotFatalErrorType> error) {
-    emitDeviceEvent("error", getSimpleMap("message", error.getErrorString()));
+    WritableMap errorBody = Arguments.createMap();
+    errorBody.putString("message", error.getErrorString());
+    errorBody.putString("errorCode", error.getErrorType().name());
+    errorBody.putString("errorType", "common");
+    emitDeviceEvent("error", errorBody);
   }
 
   @Override
   public void updateProvidedAuthorizationToken(@NonNull String providedAuthorizationToken) {
     emitDeviceEvent("tokenUpdated", getSimpleMap("token", providedAuthorizationToken));
+  }
+
+  @Override
+  public void onOnlineStatusChanged(MessageStream.OnlineStatus oldOnlineStatus, MessageStream.OnlineStatus newOnlineStatus) {
+    final WritableMap map = Arguments.createMap();
+    map.putString("old", oldOnlineStatus.name());
+    map.putString("new", newOnlineStatus.name());
+    emitDeviceEvent("onlineState", map);
   }
 
   private static void emitDeviceEvent(String eventName, @Nullable WritableMap eventData) {
@@ -363,6 +449,8 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     map.putString("avatar", msg.getSenderAvatarUrl());
     map.putBoolean("read", msg.isReadByOperator());
     map.putBoolean("canEdit", msg.canBeEdited());
+    map.putBoolean("canReply", msg.canBeReplied());
+    map.putString("serverId", msg.getServerSideId());
     Message.Attachment attach = msg.getAttachment();
     if (attach != null) {
       WritableMap _att = Arguments.createMap();
@@ -374,6 +462,19 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       _att.putString("url", fileInfo.getUrl());
       map.putMap("attachment", _att);
     }
+
+    Message.Quote quote = msg.getQuote();
+    if (quote != null) {
+      WritableMap _att = Arguments.createMap();
+      _att.putString("authorId", quote.getAuthorId());
+      _att.putString("senderName", quote.getSenderName());
+      _att.putString("messageId", quote.getMessageId());
+      _att.putString("messageText", quote.getMessageText());
+      _att.putString("messageType", quote.getMessageType().name());
+      _att.putString("state", quote.getState().name());
+      map.putMap("quote", _att);
+    }
+
     return map;
   }
 
