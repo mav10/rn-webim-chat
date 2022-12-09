@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useCallback } from 'react';
 import * as AppConfig from '../package.json';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { Button, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { isWebimError, RNWebim, WebimMessage } from 'rn-webim-chat';
 import { getHashForChatSign } from './chat-utils';
 
@@ -53,18 +53,24 @@ export default function App() {
       acc.hash = await getHashForChatSign(acc.fields, PRIVATE_KEY);
       const sessionsParams = {
         accountName: CHAT_SERVICE_ACCOUNT,
-        location: 'default',
+        location: '',
         storeHistoryLocally: true,
         accountJSON: JSON.stringify(acc),
         appVersion: AppConfig.version,
         clearVisitorData: true,
       };
 
+      await RNWebim.resumeSession(sessionsParams);
       await RNWebim.addErrorListener(errorListener);
       await RNWebim.addSateListener((state) => {
         console.log('State listener: ', state);
       });
-      await RNWebim.resumeSession(sessionsParams);
+      await RNWebim.addUnreadListener((args) => {
+        console.log('Unread listener listener: ', args);
+      });
+      await RNWebim.addNewMessageListener((args) => {
+        console.log('Got message listener listener: ', args);
+      });
       console.log('[Chat][Init] initialized with params: ', sessionsParams);
       setInit(true);
     } catch (err: unknown) {
@@ -109,39 +115,45 @@ export default function App() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.errorContainer}>
-        {fatalError && <Text style={styles.fatalError}>{fatalError}</Text>}
-        {notFatalError && (
-          <Text style={styles.commonError}>{notFatalError}</Text>
-        )}
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          {fatalError && <Text style={styles.fatalError}>{fatalError}</Text>}
+          {notFatalError && (
+            <Text style={styles.commonError}>{notFatalError}</Text>
+          )}
+        </View>
 
-      <View style={styles.messageContainer}>
-        <Text>Result:messages</Text>
-        {result.map((x) => {
-          return (
-            <View key={x.id} style={styles.message}>
-              <Text>{x.text}</Text>
-              <Text>{x.time}</Text>
-            </View>
-          );
-        })}
-      </View>
+        <View style={styles.messageContainer}>
+          <Text>Result:messages</Text>
+          {result.map((x) => {
+            return (
+              <View key={x.id} style={styles.message}>
+                <Text>{x.text}</Text>
+                <Text>{x.time}</Text>
+              </View>
+            );
+          })}
+        </View>
 
-      <Text>{`Chat is init: ${isInit}`}</Text>
-      <View style={styles.buttonsContainer}>
-        <Button title={'Init session'} onPress={intSession} />
-        <Button title={'Read messages'} onPress={onGetAllMessages} />
-        <Button title={'Send messages'} onPress={sendTestMessage} />
-
-        <Button title={'Close session'} onPress={onCloseSession} />
+        <Text>{`Chat is init: ${isInit}`}</Text>
+        <View style={styles.buttonsContainer}>
+          <Button title={'Init session'} onPress={intSession} />
+          <Button title={'Close session'} onPress={onCloseSession} />
+        </View>
+        <View style={styles.buttonsContainer}>
+          <Button title={'Read messages'} onPress={onGetAllMessages} />
+          <Button title={'Send messages'} onPress={sendTestMessage} />
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flexGrow: 1,
+  },
   container: {
     flex: 1,
   },

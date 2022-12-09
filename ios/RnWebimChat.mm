@@ -22,10 +22,10 @@ RCTResponseSenderBlock rateOperatorReject;
 }
 
 
-RCT_EXPORT_MODULE()
+RCT_EXPORT_MODULE(RnWebimChat)
 
 - (NSArray<NSString *> *)supportedEvents {
-    return @[@"newMessage", @"removeMessage", @"changedMessage", @"allMessagesRemoved", @"tokenUpdated", @"error"];
+    return @[@"newMessage", @"removeMessage", @"changedMessage", @"allMessagesRemoved", @"tokenUpdated", @"error", @"onlineState" , @"unread"];
 }
 
 RCT_EXPORT_METHOD(resumeSession:(NSDictionary*) builderData reject:(RCTResponseSenderBlock) reject resolve:(RCTResponseSenderBlock) resolve) {
@@ -101,7 +101,7 @@ RCT_EXPORT_METHOD(resumeSession:(NSDictionary*) builderData reject:(RCTResponseS
     resolve(@[@{}]);
 }
 
-RCT_EXPORT_METHOD(destroySession:(NSNumber*) clearUserData reject:(RCTResponseSenderBlock) reject resolve:(RCTResponseSenderBlock) resolve) {
+RCT_EXPORT_METHOD(destroySession:(nonnull NSNumber*) clearUserData reject:(RCTResponseSenderBlock) reject resolve:(RCTResponseSenderBlock) resolve) {
     NSError *err = nil;
     if (stream) {
         [stream closeChat:&err];
@@ -225,9 +225,8 @@ RCT_EXPORT_METHOD(sendFile:(NSString*) uri name:(NSString*) name mime:(NSString*
 
 RCT_EXPORT_METHOD(send:(NSString*) message reject:(RCTResponseSenderBlock) reject resolve:(RCTResponseSenderBlock) resolve) {
     NSError *err = nil;
-    NSString *_id = [stream sendMessage:message
-                                  error:&err];
-    if (err) {
+    NSString *_id = [stream sendMessage:message error:&err];
+    if (err or _id == nil) {
         reject(@[@{ message: err.localizedDescription}]);
     } else {
         resolve(@[@{ @"id": _id }]);
@@ -358,6 +357,17 @@ RCT_EXPORT_METHOD(send:(NSString*) message reject:(RCTResponseSenderBlock) rejec
              };
 }
 
+- (NSDictionary*) quoteToJson: (Quote*) quote {
+    return @{
+             @"authorId": [quote getAuthorID],
+             @"senderName": [quote getSenderName],
+             @"messageId": [quote getMessageID],
+             @"messageText": [quote getMessageText],
+             @"messageType": [quote getMessageType],
+             @"state": [quote getState],
+             };
+}
+
 - (NSString*) sendStatusToString:(MessageSendStatus) status {
     switch (status) {
         case MessageSendStatusSENDING:
@@ -372,6 +382,7 @@ RCT_EXPORT_METHOD(send:(NSString*) message reject:(RCTResponseSenderBlock) rejec
 - (NSDictionary*)messageToJson: (Message*) msg {
     NSString* avatar = [[msg getSenderAvatarFullURL] absoluteString];
     MessageAttachment* attachment = [msg getAttachment];
+    Quote* quote = [msg getQuote];
     NSNumber* time = [NSNumber numberWithDouble:[[msg getTime] timeIntervalSince1970] * 1000];
     NSDictionary* result = @{
                              @"id": [msg getID],
@@ -383,6 +394,9 @@ RCT_EXPORT_METHOD(send:(NSString*) message reject:(RCTResponseSenderBlock) rejec
                              @"avatar": avatar ? avatar : [NSNull null],
                              @"read": [msg isReadByOperator] ? @YES : @NO,
                              @"canEdit": [msg canBeEdited] ? @YES : @NO,
+                             @"canReply": [msg canBeReplied] ? @YES : @NO,
+
+                             @"quote": quote ? [self quoteToJson:quote] : [NSNull null],
                              @"attachment": attachment ? [self attachmentToJson:attachment] : [NSNull null]
                              };
     return result;
@@ -414,6 +428,10 @@ RCT_EXPORT_METHOD(send:(NSString*) message reject:(RCTResponseSenderBlock) rejec
 
 - (void)updateProvidedAuthorizationToken:(NSString * _Nonnull)providedAuthorizationToken {
     [self sendEventWithName:@"tokenUpdated" body:@{@"token": providedAuthorizationToken}];
+}
+
+- (void)changedUnreadByVisitorMessageCountTo:(NSNumber * _Nonnull)count {
+    [self sendEventWithName:@"unread" body:@{@"count": count}];
 }
 
 - (void)onError:(WebimError * _Nonnull)error {

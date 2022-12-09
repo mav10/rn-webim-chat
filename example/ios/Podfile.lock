@@ -286,7 +286,7 @@ PODS:
     - React-jsi (= 0.70.6)
     - React-logger (= 0.70.6)
     - React-perflogger (= 0.70.6)
-  - RnWebimChat (2.0.2):
+  - RnWebimChat (2.0.3):
     - React-Core
     - WebimClientLibrary
   - SQLite.swift (0.13.3):
@@ -447,7 +447,7 @@ SPEC CHECKSUMS:
   React-RCTVibration: c75ceef7aa60a33b2d5731ebe5800ddde40cefc4
   React-runtimeexecutor: 15437b576139df27635400de0599d9844f1ab817
   ReactCommon: 349be31adeecffc7986a0de875d7fb0dcf4e251c
-  RnWebimChat: 3b81aa9234f52c69934b70e95883469753a25651
+  RnWebimChat: 296bbd56daff6f54666f9d04fa474f0fb4c47401
   SQLite.swift: 903bfa3bc9ab06345fdfbb578e34f47cfcf417da
   WebimClientLibrary: 54be8fc08a9e69e6bcf7c4284a3400130910e128
   Yoga: 99caf8d5ab45e9d637ee6e0174ec16fbbb01bcfc

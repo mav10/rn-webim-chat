@@ -130,7 +130,112 @@ public final class _ObjCMessage: NSObject {
     public func canBeEdited() -> Bool {
         return message.canBeEdited()
     }
+    
+    @objc(canBeReplied)
+    public func canBeReplied() -> Bool {
+        return message.canBeReplied()
+    }
+    
+    @objc(getQuote)
+    public func getQuote() -> _ObjCQuote? {
+        if let quote = message.getQuote() {
+            return _ObjCQuote(quote: quote)
+        }
 
+        return nil
+    }
+    
+}
+
+
+// MARK - Quote (reply)
+@objc(Quote)
+public final class _ObjCQuote: NSObject {
+    // MARK: - Properties
+    private let quote: Quote
+
+
+    // MARK: - Initialization
+    public init(quote: Quote) {
+        self.quote = quote
+    }
+
+
+    // MARK: - Methods
+
+    @objc(getState)
+    public func getState() -> String {
+        switch quote.getState() {
+        case QuoteState.filled:
+            return "FILLED"
+        case QuoteState.FILLED:
+            return "FILLED"
+        case QuoteState.notFound:
+            return "NOT_FOUND"
+        case QuoteState.NOT_FOUND:
+            return "NOT_FOUND"
+        case QuoteState.pending:
+            return "PENDING"
+        case QuoteState.PENDING:
+            return "PENDING"
+        }
+    }
+
+    @objc(getAuthorID)
+    public func getAuthorID() -> String {
+        return quote.getAuthorID() ?? ""
+    }
+    
+    @objc(getMessageID)
+    public func getMessageID() -> String {
+        return quote.getMessageID() ?? ""
+    }
+    
+    @objc(getSenderName)
+    public func getSenderName() -> String {
+        return quote.getSenderName() ?? ""
+    }
+    
+    @objc(getMessageText)
+    public func getMessageText() -> String {
+        return quote.getMessageText() ?? ""
+    }
+    
+    @objc(getMessageType)
+    public func getMessageType() -> NSString? {
+        if let messageType = quote.getMessageType() {
+            switch messageType {
+            case MessageType.contactInformationRequest:
+                return "contactInformationRequest"
+            case MessageType.operatorMessage:
+                return "operatorMessage"
+            case MessageType.visitorMessage:
+                return "visitorMessage"
+            case MessageType.keyboardResponse:
+                return "keyboardResponse"
+            case MessageType.stickerVisitor:
+                return "stickerVisitor"
+            case MessageType.keyboard:
+                return "keyboard"
+            case MessageType.operatorBusy:
+                return "operatorBusy"
+            case MessageType.info:
+                return "info"
+            case MessageType.actionRequest:
+                return "actionRequest"
+            case MessageType.fileFromOperator:
+                return "fileFromOperator"
+            case MessageType.fileFromVisitor:
+                return "fileFromVisitor"
+            }
+        }
+        return nil;
+    }
+    
+    @objc(getMessageTimestamp)
+    public func getMessageTimestamp() -> Date? {
+        return quote.getMessageTimestamp()
+    }
 }
 
 // MARK: - MessageAttachment

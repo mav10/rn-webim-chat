@@ -22,6 +22,7 @@
 		AE4BB44D292A80F2007BA5F6 /* WebimRemoteNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB4322925EF6A007BA5F6 /* WebimRemoteNotification.swift */; };
 		AE4BB44E292A80F5007BA5F6 /* WebimSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4BB42F2925EF6A007BA5F6 /* WebimSession.swift */; };
 		AE4BB44F292A8493007BA5F6 /* RnWebimChat.mm in Sources */ = {isa = PBXBuildFile; fileRef = B3E7B5891CC2AC0600A0062D /* RnWebimChat.mm */; };
+		AE95D7DD2943A9CC007DEDD9 /* UnreadByVisitorMessageCountChangeListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE95D7DC2943A9CC007DEDD9 /* UnreadByVisitorMessageCountChangeListener.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -52,6 +53,7 @@
 		AE4BB4342925EF6A007BA5F6 /* FatalErrorHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FatalErrorHandler.swift; sourceTree = "<group>"; };
 		AE4BB43F292A7DF8007BA5F6 /* RnWebimChat-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "RnWebimChat-Bridging-Header.h"; sourceTree = "<group>"; };
 		AE4BB440292A7DF9007BA5F6 /* Webim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Webim.swift; sourceTree = "<group>"; };
+		AE95D7DC2943A9CC007DEDD9 /* UnreadByVisitorMessageCountChangeListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadByVisitorMessageCountChangeListener.swift; sourceTree = "<group>"; };
 		B3E7B5881CC2AC0600A0062D /* RnWebimChat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RnWebimChat.h; sourceTree = "<group>"; };
 		B3E7B5891CC2AC0600A0062D /* RnWebimChat.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = RnWebimChat.mm; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -78,6 +80,7 @@
 		58B511D21A9E6C8500147676 = {
 			isa = PBXGroup;
 			children = (
+				AE95D7DC2943A9CC007DEDD9 /* UnreadByVisitorMessageCountChangeListener.swift */,
 				AE4BB440292A7DF9007BA5F6 /* Webim.swift */,
 				AE4BB4292925EF6A007BA5F6 /* Department.swift */,
 				AE4BB4342925EF6A007BA5F6 /* FatalErrorHandler.swift */,
@@ -170,6 +173,7 @@
 				AE4BB44A292A80E6007BA5F6 /* ProvidedAuthorizationTokenStateListener.swift in Sources */,
 				AE4BB44F292A8493007BA5F6 /* RnWebimChat.mm in Sources */,
 				AE4BB443292A80C1007BA5F6 /* Department.swift in Sources */,
+				AE95D7DD2943A9CC007DEDD9 /* UnreadByVisitorMessageCountChangeListener.swift in Sources */,
 				AE4BB44D292A80F2007BA5F6 /* WebimRemoteNotification.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
