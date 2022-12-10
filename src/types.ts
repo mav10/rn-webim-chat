@@ -17,6 +17,7 @@ export enum WebimEvents {
   CLEAR_DIALOG = 'allMessagesRemoved',
   TOKEN_UPDATED = 'tokenUpdated',
   ERROR = 'error',
+  STATE = 'onlineState',
 }
 
 export interface WebimAttachment {
@@ -37,18 +38,33 @@ export interface WebimMessage {
   status: 'SENT';
   read: boolean;
   canEdit: boolean;
+  carReply: boolean;
+  quote?: any;
   attachment?: WebimAttachment;
 }
 
-export type NativeError = {
+export type WebimNativeError = {
   message: string;
+  errorCode: string;
+  errorType: 'fatal' | 'common';
 };
 
 export type NewMessageListener = (data: { msg: WebimMessage }) => void;
-export type UpdateMessageListener = (data: { from: WebimMessage, to: WebimMessage }) => void;
+export type UpdateMessageListener = (data: {
+  from: WebimMessage;
+  to: WebimMessage;
+}) => void;
 export type RemoveMessageListener = (data: { msg: WebimMessage }) => void;
 export type DialogClearedListener = () => void;
 export type TokenUpdatedListener = (token: string) => void;
-export type ErrorListener = (error: NativeError) => void;
+export type ErrorListener = (error: WebimNativeError) => void;
+export type StateListener = (state: { old: string; new: string }) => void;
 
-export type WebimEventListener = NewMessageListener | UpdateMessageListener | RemoveMessageListener | DialogClearedListener | TokenUpdatedListener | ErrorListener;
+export type WebimEventListener =
+  | NewMessageListener
+  | UpdateMessageListener
+  | RemoveMessageListener
+  | DialogClearedListener
+  | TokenUpdatedListener
+  | ErrorListener
+  | StateListener;
