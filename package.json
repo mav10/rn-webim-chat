@@ -1,6 +1,6 @@
 {
   "name": "rn-webim-chat",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "Webim chat wrapper for React-Native. Supports Android and iOS. Fixed issues for native platforms build that are present in the official package.",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
