@@ -1,7 +1,7 @@
 {
   "name": "rn-webim-chat",
   "version": "2.0.4",
-  "description": "test",
+  "description": "React native Webim chat wrapper",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
   "types": "lib/typescript/index.d.ts",
@@ -39,7 +39,9 @@
   "keywords": [
     "react-native",
     "ios",
-    "android"
+    "android",
+    "webim",
+    "chat"
   ],
   "repository": "https://github.com/mav10/rn-webim-chat",
   "author": "maxim vasin <maxim.vasin@mail.ru> (https://github.com/mav10)",
