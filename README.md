@@ -28,8 +28,28 @@ In [example folder](./example) there is simple workflow how to:
 
 How it looks like you can see here
 
-![default](doc/img.png)![messages](doc/messages.png)
-![error 1](doc/error_1.png) ![error 2](doc/error_2.png)
+<table align="Center">
+  <tr>
+    <td>Not init session</td>
+    <td>Requested messages</td>
+  </tr>
+  <tr>
+    <td><img src="doc/img.png" width=400 height=760></td>
+    <td><img src="doc/messages.png" width=400 height=760></td>
+  </tr>
+ </table>
+ 
+ 
+<table align="Center">
+  <tr>
+     <td>Error getMessages (as session is null)</td>
+     <td>Error sendMessage (as session is null)</td>
+  </tr>
+  <tr>
+    <td><img src="doc/error_1.png" width=400 height=760></td>
+    <td><img src="doc/error_2.png" width=400 height=760></td>
+  </tr>
+ </table>
 
 ![](doc/chat.png)
 ## Usage
