@@ -25,7 +25,7 @@ RCTResponseSenderBlock rateOperatorReject;
 RCT_EXPORT_MODULE(RnWebimChat)
 
 - (NSArray<NSString *> *)supportedEvents {
-    return @[@"newMessage", @"removeMessage", @"changedMessage", @"allMessagesRemoved", @"tokenUpdated", @"error", @"onlineState" , @"unread"];
+    return @[@"newMessage", @"removeMessage", @"changedMessage", @"allMessagesRemoved", @"tokenUpdated", @"error", @"onlineState"];
 }
 
 RCT_EXPORT_METHOD(resumeSession:(NSDictionary*) builderData reject:(RCTResponseSenderBlock) reject resolve:(RCTResponseSenderBlock) resolve) {
@@ -73,29 +73,29 @@ RCT_EXPORT_METHOD(resumeSession:(NSDictionary*) builderData reject:(RCTResponseS
         sessionBuilder = [sessionBuilder setIsLocalHistoryStoragingEnabled:false];
         webimSession = [sessionBuilder build:&error];
         if (error) {
-            reject(@[@{ @"message": [error localizedDescription]}]);
+            reject(@[@{ @"message": [error localizedDescription], @"errorCode": [self sessionErrorCodeToString: [error code]], @"errorType": @"fatal"}]);
             return;
         }
     }
     [webimSession resume:&error];
     if (error) {
-        reject(@[@{ @"message": [error localizedDescription]}]);
+        reject(@[@{ @"message": [error localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION"}]);
         return;
     }
     stream = [webimSession getStream];
     [stream setChatRead:&error];
     if (error) {
-        reject(@[@{ @"message": [error localizedDescription]}]);
+        reject(@[@{ @"message": [error localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION"}]);
         return;
     }
     tracker = [stream newMessageTrackerWithMessageListener:(id<MessageListener>)self error:&error];
     if (error) {
-        reject(@[@{ @"message": [error localizedDescription]}]);
+        reject(@[@{ @"message": [error localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION"}]);
         return;
     }
     [stream startChat:&error];
     if (error) {
-        reject(@[@{ @"message": [error localizedDescription]}]);
+        reject(@[@{ @"message": [error localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION"}]);
         return;
     }
     resolve(@[@{}]);
@@ -107,7 +107,7 @@ RCT_EXPORT_METHOD(destroySession:(nonnull NSNumber*) clearUserData reject:(RCTRe
         [stream closeChat:&err];
     }
     if (err) {
-        reject(@[@{ @"message": [err localizedDescription]}]);
+        reject(@[@{@"message": [err localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION" }]);
         return;
     }
     stream = nil;
@@ -119,7 +119,7 @@ RCT_EXPORT_METHOD(destroySession:(nonnull NSNumber*) clearUserData reject:(RCTRe
         }
     }
     if (err) {
-        reject(@[@{ @"message": [err localizedDescription]}]);
+        reject(@[@{@"message": [err localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION" }]);
         return;
     }
     webimSession = nil;
@@ -127,7 +127,7 @@ RCT_EXPORT_METHOD(destroySession:(nonnull NSNumber*) clearUserData reject:(RCTRe
         [webimSession destroy:&err];
     }
     if (err) {
-        reject(@[@{ @"message": [err localizedDescription]}]);
+        reject(@[@{@"message": [err localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION" }]);
         return;
     }
     resolve(@[@{}]);
@@ -140,7 +140,7 @@ RCT_EXPORT_METHOD(getLastMessages:(nonnull NSNumber*)limit reject:(RCTResponseSe
                             resolve(@[@{@"messages": [self messagesToJsonArray:arr] }]);
                          } error:&err];
     if (err) {
-        reject(@[@{@"message": [err localizedDescription]}]);
+        reject(@[@{@"message": [err localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION" }]);
     }
 }
 
@@ -151,7 +151,8 @@ RCT_EXPORT_METHOD(getNextMessages:(NSNumber*)limit reject:(RCTResponseSenderBloc
         resolve(@[@{@"messages": [self messagesToJsonArray:arr] }]);
     } error:&err];
     if (err) {
-        reject(@[@{@"message": [err localizedDescription]}]);
+
+        reject(@[@{@"message": [err localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION" }]);
     }
 }
 
@@ -163,25 +164,28 @@ RCT_EXPORT_METHOD(getAllMessages:(RCTResponseSenderBlock) reject resolve:(RCTRes
         resolve(@[@{@"messages": [self messagesToJsonArray:arr] }]);
     } error:&err];
     if (err) {
-        reject(@[@{@"message": [err localizedDescription]}]);
+        reject(@[@{@"message": [err localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION" }]);
     }
 }
 
 RCT_EXPORT_METHOD(rateOperator:(NSNumber*) rating reject:(RCTResponseSenderBlock) reject resolve:(RCTResponseSenderBlock) resolve) {
     if (stream) {
         NSError *err = nil;
-        // TODO: fix me
-//        Operator* operator = [stream getCurrentOperator];
-//        [stream rateOperatorWithID: [operator getID] byRating:[rating intValue]
-//                 completionHandler:(id<RateOperatorCompletionHandler>)self error:&err];
+
+        Operator* operatorObj = [stream getCurrentOperator];
+        if(operatorObj) {
+            [stream rateOperatorWithID: [operatorObj getID] byRating:[rating intValue]
+                     completionHandler:(id<RateOperatorCompletionHandler>)self error:&err];
+        }
+        
         if (err) {
-            reject(@[@{ @"message": [err localizedDescription] }]);
+            reject(@[@{ @"message": [err localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION" }]);
         } else {
             rateOperatorResolve = resolve;
             rateOperatorResolve = reject;
         }
     } else {
-        reject(@[@{ @"message": @"has not valid session" }]);
+        reject(@[@{ @"message": @"has not valid session", @"errorType": @"common", @"errorCode": @"NULL_SESSION" }]);
     }
 }
 
@@ -219,18 +223,25 @@ RCT_EXPORT_METHOD(sendFile:(NSString*) uri name:(NSString*) name mime:(NSString*
                    completionHandler:(id<SendFileCompletionHandler>) self
                                error:&err];
     if (err) {
-        reject(@[@{ @"message": err.localizedDescription }]);
+        reject(@[@{ @"message": [err localizedDescription], @"errorType": @"fatal", @"errorCode": @"NULL_SESSION"}]);
     }
 }
 
 RCT_EXPORT_METHOD(send:(NSString*) message reject:(RCTResponseSenderBlock) reject resolve:(RCTResponseSenderBlock) resolve) {
     NSError *err = nil;
     NSString *_id = [stream sendMessage:message error:&err];
-    if (err or _id == nil) {
-        reject(@[@{ message: err.localizedDescription}]);
-    } else {
-        resolve(@[@{ @"id": _id }]);
+    if (err) {
+        reject(@[@{ @"message": [err localizedDescription], @"errorType": @"fatal", @"errorCode": @"SENDING_ERROR"}]);
+        return;
     }
+    
+    if(_id == nil) {
+        reject(@[@{ @"message": @"Message was not sent successfully", @"errorType": @"fatal", @"errorCode": @"SENDING_ERROR"}]);
+        return;
+    }
+        
+    resolve(@[@{ @"id": _id }]);
+
 }
 
 - (void)addedMessage:(Message * _Nonnull)newMessage after:(Message * _Nullable)previousMessage {
@@ -379,6 +390,33 @@ RCT_EXPORT_METHOD(send:(NSString*) message reject:(RCTResponseSenderBlock) rejec
     }
 }
 
+- (NSString*) sessionErrorCodeToString:(NSInteger) errorCode {
+    switch (errorCode) {
+        case 0:
+            return @"invalidAuthentificatorParameters";
+        case 1:
+            return @"invalidAuthentificatorParameters";
+        case 2:
+            return @"invalidRemoteNotificationConfiguration";
+        case 3:
+            return @"invalidRemoteNotificationConfiguration";
+        case 4:
+            return @"nilAccountName";
+        case 5:
+            return @"nilAccountName";
+        case 6:
+            return @"nilLocation";
+        case 7:
+            return @"nilLocation";
+        case 8:
+            return @"invalidHex";
+        case 9:
+            return @"invalidHex";
+        default:
+            return @"unkwnown";
+    }
+}
+
 - (NSDictionary*)messageToJson: (Message*) msg {
     NSString* avatar = [[msg getSenderAvatarFullURL] absoluteString];
     MessageAttachment* attachment = [msg getAttachment];
@@ -430,9 +468,6 @@ RCT_EXPORT_METHOD(send:(NSString*) message reject:(RCTResponseSenderBlock) rejec
     [self sendEventWithName:@"tokenUpdated" body:@{@"token": providedAuthorizationToken}];
 }
 
-- (void)changedUnreadByVisitorMessageCountTo:(NSNumber * _Nonnull)count {
-    [self sendEventWithName:@"unread" body:@{@"count": count}];
-}
 
 - (void)onError:(WebimError * _Nonnull)error {
     [self sendEventWithName:@"error" body:@{@"message": @"err"}];

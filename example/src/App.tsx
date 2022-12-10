@@ -65,9 +65,6 @@ export default function App() {
       await RNWebim.addSateListener((state) => {
         console.log('State listener: ', state);
       });
-      await RNWebim.addUnreadListener((args) => {
-        console.log('Unread listener listener: ', args);
-      });
       await RNWebim.addNewMessageListener((args) => {
         console.log('Got message listener listener: ', args);
       });
@@ -111,8 +108,9 @@ export default function App() {
       await RNWebim.send('Test example message');
     } catch (e) {
       console.log('[Chat][Send] error: ', JSON.stringify(e));
+      handleError(e);
     }
-  }, []);
+  }, [handleError]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

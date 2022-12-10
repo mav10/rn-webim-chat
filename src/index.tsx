@@ -16,7 +16,6 @@ import type {
   UpdateMessageListener,
   WebimEventListener,
   WebimMessage,
-  UnreadListener,
 } from './types';
 import { WebimEvents } from './types';
 import { WebimSubscription } from './utils';
@@ -198,11 +197,6 @@ export class RNWebim {
 
   public static addSateListener(listener: StateListener): WebimSubscription {
     const subscription = emitter.addListener(WebimEvents.STATE, listener);
-    return new WebimSubscription(() => RNWebim.removeListener(subscription));
-  }
-
-  public static addUnreadListener(listener: UnreadListener): WebimSubscription {
-    const subscription = emitter.addListener(WebimEvents.UNREAD, listener);
     return new WebimSubscription(() => RNWebim.removeListener(subscription));
   }
 

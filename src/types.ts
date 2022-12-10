@@ -18,7 +18,6 @@ export enum WebimEvents {
   TOKEN_UPDATED = 'tokenUpdated',
   ERROR = 'error',
   STATE = 'onlineState',
-  UNREAD = 'unread',
 }
 
 export interface WebimAttachment {
@@ -39,6 +38,8 @@ export interface WebimMessage {
   status: 'SENT';
   read: boolean;
   canEdit: boolean;
+  carReply: boolean;
+  quote?: any;
   attachment?: WebimAttachment;
 }
 
@@ -58,7 +59,6 @@ export type DialogClearedListener = () => void;
 export type TokenUpdatedListener = (token: string) => void;
 export type ErrorListener = (error: WebimNativeError) => void;
 export type StateListener = (state: { old: string; new: string }) => void;
-export type UnreadListener = (args: any) => void;
 
 export type WebimEventListener =
   | NewMessageListener
