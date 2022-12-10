@@ -6,19 +6,29 @@ _Inspired by [volga-volga/react-native-webim](https://github.com/volga-volga/rea
 ___
 
 ## Installation
+- Requires React Native version 0.60.0, or later.
+- Supports iOS 10.0, or later.
 
+Via NPM
+```sh
+npm install rn-webim-chat
 ```
+
+Via Yarn
+```sh
 yarn add rn-webim-chat
 ```
 
-iOS
+#### :iphone:iOS (_Extra steps_)
 - add to PodFile     `use_frameworks!`
 - add `WebimClientLibrary` to Podfile with specific version (_Wrapper was written for v3.37.4_)
 - pod install
 
-see [example](./example/ios/Podfile)
+see [example Podfile](./example/ios/Podfile)
 
 **Note:** Flipper doesn't work with **use_frameworks** flag
+
+Since the official [WebimClientLibrary](https://github.com/webim/webim-client-sdk-ios) is written is Swift, you need to have Swift enabled in your iOS project. If you already have any .swift files, you are good to go. Otherwise create a new empty Swift source file in Xcode, and allow it to create the neccessary bridging header when prompted.
 
 ## Example
 In [example folder](./example) there is simple workflow how to:
@@ -52,7 +62,7 @@ How it looks like you can see here
  </table>
 
 ![](doc/chat.png)
-## Usage
+## Methods
 
 **Important:** All methods are promise based and can throw exceptions.
 List of error codes will be provided later as get COMMON for both platform.
@@ -60,24 +70,11 @@ List of error codes will be provided later as get COMMON for both platform.
 ### Init chat
 
  ```ts
-import webim from 'rn-webim-chat';
+import { RNWebim } from 'rn-webim-chat';
 
-webim.resumeSession(builderParams)
+RNWebim.resumeSession(builderParams: SessionBuilderParams)
 ```
-
-```ts
-type SessionBuilderParams = {
-  accountName: string;
-  location: string;
-  accountJSON?: string;
-  providedAuthorizationToken?: string;
-  appVersion?: string;
-  clearVisitorData?: boolean;
-  storeHistoryLocally?: boolean;
-  title?: string;
-  pushToken?: string;
-};
- ```
+**SessionBuilderParams:**
 - accountName (required) - name of your account in webim system
 - location (required) - name of location. For example "mobile"
 - accountJSON - encrypted json with user data. See [**Start chat with user data**](#start-chat-with-user-data)
@@ -94,14 +91,14 @@ type SessionBuilderParams = {
 ```js
 import { RNWebim,  WebimEvents} from 'rn-webim-chat';
 
-const listener = RnWebim.addNewMessageListener(({ msg }) => {
+const listener = RNWebim.addNewMessageListener(({ msg }) => {
   // do something
 });
 // usubscribe
 listener.remove();
 
 // or
-const listener2 = RnWebim.addListener(WebimEvents.NEW_MESSAGE, ({ msg }) => {
+const listener2 = RNWebim.addListener(WebimEvents.NEW_MESSAGE, ({ msg }) => {
     // do something
 });
 ```
@@ -116,18 +113,36 @@ Supported events (`WebimEvents`):
 ### Get messages
 
 ```js
-const { messages } = await RnWebim.getLastMessages(limit);
+const { messages } = await RNWebim.getLastMessages(limit);
 // or
-const { messages } = await RnWebim.getNextMessages(limit);
+const { messages } = await RNWebim.getNextMessages(limit);
 // or
-const { messages } = await RnWebim.getAllMessages();
+const { messages } = await RNWebim.getAllMessages();
+```
+
+**Message type**
+```ts
+{
+  id: string;
+  avatar?: string;
+  time: number;
+  type: 'OPERATOR' | 'VISITOR' | 'INFO';
+  text: string;
+  name: string;
+  status: 'SENT';
+  read: boolean;
+  canEdit: boolean;
+  carReply: boolean;
+  quote?: any; // no typing yet
+  attachment?: WebimAttachment;
+}
 ```
 Note: method `getAllMessages` works strange on iOS, and sometimes returns empty array. We recommend to use `getLastMessages` instead
 
 ### Send text message
 
 ```
-RnWebim.send(message);
+RNWebim.send(message);
 ```
 
 ### Attach files
@@ -136,7 +151,7 @@ RnWebim.send(message);
 
 ```js
 try {
-  await RnWebim.tryAttachFile();
+  await RNWebim.tryAttachFile();
 } catch (err) {
   /*
    process err.message:
@@ -151,7 +166,7 @@ try {
 
 ```js
 try {
-  RnWebim.sendFile(uri, name, mime, extension)
+  RNWebim.sendFile(uri, name, mime, extension)
 } catch (e) {
   // can throw 'file size exceeded' and 'type not allowed' errors
 }
@@ -159,12 +174,12 @@ try {
 
 ### Rate current operator
 ```js
-RnWebim.rateOperator()
+RNWebim.rateOperator()
 ```
 
 ### Destroy session
 ```js
-RnWebim.destroySession(clearData);
+RNWebim.destroySession(clearData);
 ```
 
 - clearData (optional) boolean - If true wil
