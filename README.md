@@ -3,7 +3,23 @@
 Implementation of [webim sdk](https://webim.ru/) for [react-native](https://github.com/facebook/react-native)
 
 _Inspired by [volga-volga/react-native-webim](https://github.com/volga-volga/react-native-webim)_
+
+
+<!-- BADGES/ -->
+
+[![Package publish](https://github.com/mav10/rn-webim-chat/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/mav10/rn-webim-chat/actions/workflows/npm-publish.yml)
+<span class="badge-npmversion"><a href="https://www.npmjs.com/package/rn-webim-chat" title="View this project on NPM"><img src="https://badge.fury.io/js/rn-webim-chat.svg" alt="NPM version" /></a></span>
+<span class="badge-npmdownloads"><a href="https://www.npmjs.com/package/rn-webim-chat" title="View this project on NPM"><img alt="npm" src="https://img.shields.io/npm/dm/rn-webim-chat"></a></span>
+<!-- /BADGES -->
 ___
+
+##Platforms:
+
+![React Native](https://img.shields.io/badge/react_native-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+
+![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
+
+![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=ios&logoColor=white)
 
 ## Installation
 - Requires React Native version 0.60.0, or later.
@@ -48,8 +64,8 @@ How it looks like you can see here
     <td><img src="doc/messages.png" width=400 height=760></td>
   </tr>
  </table>
- 
- 
+
+
 <table align="Center">
   <tr>
      <td>Error getMessages (as session is null)</td>

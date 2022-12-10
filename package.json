@@ -1,7 +1,7 @@
 {
   "name": "rn-webim-chat",
   "version": "2.0.4",
-  "description": "React native Webim chat wrapper",
+  "description": "Matomo wrapper for React-Native. Supports Android and iOS. Fixed issues for native platforms build that are present in the official package.",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
   "types": "lib/typescript/index.d.ts",
