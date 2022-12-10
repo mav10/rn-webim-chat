@@ -13,7 +13,7 @@ _Inspired by [volga-volga/react-native-webim](https://github.com/volga-volga/rea
 <!-- /BADGES -->
 ___
 
-##Platforms:
+## Platforms:
 
 ![React Native](https://img.shields.io/badge/react_native-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
 
