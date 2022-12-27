@@ -11,9 +11,9 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
+  s.swift_version = '5.0'
   s.platforms    = { :ios => "10.0" }
   s.source       = { :git => "https://github.com/mav10/rn-webim-chat.git", :tag => "#{s.version}" }
-  s.static_framework = true
 
   s.source_files = "ios/**/*.{h,m,mm,swift}"
 
