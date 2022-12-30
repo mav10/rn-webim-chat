@@ -5,8 +5,8 @@ import { Button, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { isWebimError, RNWebim, WebimMessage } from 'rn-webim-chat';
 import { getHashForChatSign } from './chat-utils';
 
-const PRIVATE_KEY = '';
-const CHAT_SERVICE_ACCOUNT = '';
+const PRIVATE_KEY = '437d574200394d92ba3aa9fe619eb02c';
+const CHAT_SERVICE_ACCOUNT = 'comrnwebimchatexample';
 
 const acc = {
   fields: {
@@ -53,7 +53,7 @@ export default function App() {
       acc.hash = await getHashForChatSign(acc.fields, PRIVATE_KEY);
       const sessionsParams = {
         accountName: CHAT_SERVICE_ACCOUNT,
-        location: '',
+        location: 'default',
         storeHistoryLocally: true,
         accountJSON: JSON.stringify(acc),
         appVersion: AppConfig.version,
@@ -81,7 +81,7 @@ export default function App() {
       const messageResult = await RNWebim.getAllMessages();
       console.log('[Chat][All Messages] get: ', messageResult);
 
-      setResult(messageResult.messages);
+      setResult(messageResult);
     } catch (err: unknown) {
       console.log('[Chat][All Messages] error: ', JSON.stringify(err));
       handleError(err);

@@ -43,66 +43,59 @@ const DEFAULT_MESSAGES_LIMIT = 100;
 
 export class RNWebim {
   static resumeSession(params: SessionBuilderParams): Promise<void> {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.resumeSession(
-        params,
-        (error: WebimNativeError) => reject(error),
-        () => resolve()
-      );
-    });
+    return RnWebimChat.resumeSession(params);
   }
 
   static destroySession(clearData: boolean = false) {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.destroySession(
-        clearData,
-        (error: WebimNativeError) => reject(error),
-        resolve
-      );
-    });
+    return RnWebimChat.destroySession(clearData)
+      .catch((err: WebimNativeError) => {
+        throw err;
+      })
+      .then(() => {});
   }
 
   static getLastMessages(
     limit: number = DEFAULT_MESSAGES_LIMIT
-  ): Promise<{ messages: WebimMessage[] }> {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.getLastMessages(
-        limit,
-        (error: WebimNativeError) => reject(error),
-        (messages: { messages: WebimMessage[] }) => resolve(messages)
-      );
-    });
+  ): Promise<WebimMessage[]> {
+    return RnWebimChat.getLastMessages(limit)
+      .catch((err: any) => {
+        throw err;
+      })
+      .then((messages: WebimMessage[]) => {
+        return messages || [];
+      });
   }
 
   static getNextMessages(
     limit: number = DEFAULT_MESSAGES_LIMIT
-  ): Promise<{ messages: WebimMessage[] }> {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.getNextMessages(
-        limit,
-        (error: WebimNativeError) => reject(error),
-        (messages: { messages: WebimMessage[] }) => resolve(messages)
-      );
-    });
+  ): Promise<WebimMessage[]> {
+    return RnWebimChat.getNextMessages(limit)
+      .catch((err: any) => {
+        throw err;
+      })
+      .then((messages: WebimMessage[]) => {
+        return messages || [];
+      });
   }
 
-  static getAllMessages(): Promise<{ messages: WebimMessage[] }> {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.getAllMessages(
-        (error: WebimNativeError) => reject(error),
-        (messages: { messages: WebimMessage[] }) => resolve(messages)
-      );
-    });
+  static getAllMessages(): Promise<WebimMessage[]> {
+    return RnWebimChat.getAllMessages()
+      .catch((err: any) => {
+        throw err;
+      })
+      .then((messages: WebimMessage[]) => {
+        return messages || [];
+      });
   }
 
-  static send(message: string) {
-    return new Promise((resolve, reject) =>
-      RnWebimChat.send(
-        message,
-        (error: WebimNativeError) => reject(error),
-        (id: string) => resolve(id)
-      )
-    );
+  static send(message: string): Promise<string> {
+    return RnWebimChat.send(message)
+      .catch((err: WebimNativeError) => {
+        throw err;
+      })
+      .then((id: string) => {
+        return id;
+      });
   }
 
   static rateOperator(rate: number) {

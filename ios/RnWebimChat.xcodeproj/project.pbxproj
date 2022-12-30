@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AE420D00295D7C69004B8C4D /* MyMessageListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE420CFF295D7C4F004B8C4D /* MyMessageListener.swift */; };
 		F4FF95D7245B92E800C19C63 /* RnWebimChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4FF95D6245B92E800C19C63 /* RnWebimChat.swift */; };
 /* End PBXBuildFile section */
 
@@ -24,6 +25,7 @@
 
 /* Begin PBXFileReference section */
 		134814201AA4EA6300B7C361 /* libRnWebimChat.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libRnWebimChat.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		AE420CFF295D7C4F004B8C4D /* MyMessageListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyMessageListener.swift; sourceTree = "<group>"; };
 		B3E7B5891CC2AC0600A0062D /* RnWebimChat.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RnWebimChat.m; sourceTree = "<group>"; };
 		F4FF95D5245B92E700C19C63 /* RnWebimChat-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "RnWebimChat-Bridging-Header.h"; sourceTree = "<group>"; };
 		F4FF95D6245B92E800C19C63 /* RnWebimChat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RnWebimChat.swift; sourceTree = "<group>"; };
@@ -51,6 +53,7 @@
 		58B511D21A9E6C8500147676 = {
 			isa = PBXGroup;
 			children = (
+				AE420CFF295D7C4F004B8C4D /* MyMessageListener.swift */,
 				F4FF95D6245B92E800C19C63 /* RnWebimChat.swift */,
 				B3E7B5891CC2AC0600A0062D /* RnWebimChat.m */,
 				F4FF95D5245B92E700C19C63 /* RnWebimChat-Bridging-Header.h */,
@@ -116,6 +119,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F4FF95D7245B92E800C19C63 /* RnWebimChat.swift in Sources */,
+				AE420D00295D7C69004B8C4D /* MyMessageListener.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
