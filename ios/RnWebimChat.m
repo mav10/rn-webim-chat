@@ -1,4 +1,5 @@
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 
 @interface RCT_EXTERN_MODULE(RnWebimChat, NSObject)
 
@@ -11,23 +12,39 @@
   return YES;
 }
 
-RCT_EXTERN_METHOD(resumeSession:(NSDictionary*)builderData
+RCT_EXTERN_METHOD(initSession:(NSDictionary*)builderData
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(destroySession:(nonnull NSNumber*)clearUserData
+
+RCT_EXTERN_METHOD(resumeSession:(RCTPromiseResolveBlock)resolve
+                  withRejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(pauseSession:(RCTPromiseResolveBlock)resolve
+                  withRejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(destroySession:(NSNumber* _Nonnull)clearUserData
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(getLastMessages:(nonnull NSNumber*)limit
+
+RCT_EXTERN_METHOD(getLastMessages:(NSNumber* _Nonnull)limit
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(getNextMessages:(NSNumber*)limit
+RCT_EXTERN_METHOD(getNextMessages:(NSNumber* _Nonnull)limit
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(getAllMessages:(RCTPromiseResolveBlock)resolve
+                  withRejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(readMessages:(RCTPromiseResolveBlock)resolve
+                  withRejecter:(RCTPromiseRejectBlock)reject)
+
+
+RCT_EXTERN_METHOD(send:(NSString*)message
+                  withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(rateOperator:(NSNumber*)rating
@@ -38,10 +55,6 @@ RCT_EXTERN_METHOD(tryAttachFile:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(sendFile:(NSString*)uri withName:(NSString*)name withMime:(NSString*)mime withExtention:(NSString*)extention
-                  withResolver:(RCTPromiseResolveBlock)resolve
-                  withRejecter:(RCTPromiseRejectBlock)reject)
-
-RCT_EXTERN_METHOD(send:(NSString*)message
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 

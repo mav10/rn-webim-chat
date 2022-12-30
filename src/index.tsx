@@ -16,6 +16,8 @@ import type {
   UpdateMessageListener,
   WebimEventListener,
   WebimMessage,
+  TypingListener,
+  UnreadCountListener,
 } from './types';
 import { WebimEvents } from './types';
 import { WebimSubscription } from './utils';
@@ -42,8 +44,28 @@ const emitter = new NativeEventEmitter(RnWebimChat);
 const DEFAULT_MESSAGES_LIMIT = 100;
 
 export class RNWebim {
-  static resumeSession(params: SessionBuilderParams): Promise<void> {
-    return RnWebimChat.resumeSession(params);
+  static initSession(params: SessionBuilderParams): Promise<void> {
+    return RnWebimChat.initSession(params)
+      .catch((err: WebimNativeError) => {
+        throw err;
+      })
+      .then(() => {
+        return;
+      });
+  }
+
+  static resumeSession(): Promise<void> {
+    return RnWebimChat.resumeSession()
+      .catch((err: WebimNativeError) => {
+        throw err;
+      })
+      .then(() => {
+        return;
+      });
+  }
+
+  static pauseSession(): Promise<void> {
+    return RnWebimChat.pauseSession();
   }
 
   static destroySession(clearData: boolean = false) {
@@ -51,7 +73,9 @@ export class RNWebim {
       .catch((err: WebimNativeError) => {
         throw err;
       })
-      .then(() => {});
+      .then(() => {
+        return;
+      });
   }
 
   static getLastMessages(
@@ -134,6 +158,21 @@ export class RNWebim {
     return new Promise((resolve, reject) =>
       RnWebimChat.sendFile(uri, name, mime, extension, reject, resolve)
     );
+  }
+
+  public static addTypingListener(listener: TypingListener): WebimSubscription {
+    const subscription = emitter.addListener(WebimEvents.TYPING, listener);
+    return new WebimSubscription(() => RNWebim.removeListener(subscription));
+  }
+
+  public static addUnreadCountListener(
+    listener: UnreadCountListener
+  ): WebimSubscription {
+    const subscription = emitter.addListener(
+      WebimEvents.UNREAD_COUNTER,
+      listener
+    );
+    return new WebimSubscription(() => RNWebim.removeListener(subscription));
   }
 
   public static addNewMessageListener(

@@ -8,10 +8,10 @@
 import Foundation
 import WebimClientLibrary
 
-public final class MyMessageListener : MessageListener {
+public final class MyMessageListener : RCTEventEmitter, MessageListener {
     public func added(message newMessage: Message,
                after previousMessage: Message?) {
-        
+        self.sendEvent(withName: "newMessage", body: "msg: {text: \"new\"}")
     }
     
     public func removed(message: Message) {}
