@@ -79,7 +79,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
               if (fileCbSuccess != null) {
                 WritableMap _data = Arguments.createMap();
                 _data.putString("uri", uri.toString());
-                _data.putString("name", name);
+                _data.putString("name", name != null ? name.replace(":", "") : null);
                 _data.putString("mime", mime);
                 _data.putString("extension", extension);
                 fileCbSuccess.invoke(_data);
@@ -354,79 +354,79 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     }
   }
 
-//  @ReactMethod
-//  public void tryAttachFile(Callback failureCb, Callback successCb) {
-//    fileCbFailure = failureCb;
-//    fileCbSuccess = successCb;
-//    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-//    intent.setType("*/*");
-//    intent.addCategory(Intent.CATEGORY_OPENABLE);
-//    Activity activity = reactContext.getCurrentActivity();
-//    if (activity != null) {
-//      activity.startActivityForResult(Intent.createChooser(intent, "Выбор файла"), FILE_SELECT_CODE);
-//    } else {
-//      failureCb.invoke("pick error");
-//      fileCbFailure = null;
-//      fileCbSuccess = null;
-//    }
-//  }
-//
-//  @ReactMethod
-//  public void sendFile(String uri, String name, String mime, String extension, final Callback failureCb, final Callback successCb) {
-//    File file = null;
-//    try {
-//      Activity activity = getContext().getCurrentActivity();
-//      if (activity == null) {
-//        failureCb.invoke("");
-//        return;
-//      }
-//      InputStream inp = activity.getContentResolver().openInputStream(Uri.parse(uri));
-//      if (inp != null) {
-//        file = File.createTempFile("webim", extension, activity.getCacheDir());
-//        writeFully(file, inp);
-//      }
-//    } catch (IOException e) {
-//      if (file != null) {
-//        file.delete();
-//      }
-//      failureCb.invoke(getSimpleMap("message", "unknown"));
-//      return;
-//    }
-//    if (file != null && name != null) {
-//      final File fileToUpload = file;
-//      session.getStream().sendFile(fileToUpload, name, mime, new MessageStream.SendFileCallback() {
-//        @Override
-//        public void onProgress(@NonNull Message.Id id, long sentBytes) {
-//        }
-//
-//        @Override
-//        public void onSuccess(@NonNull Message.Id id) {
-//          fileToUpload.delete();
-//          successCb.invoke(getSimpleMap("id", id.toString()));
-//        }
-//
-//        @Override
-//        public void onFailure(@NonNull Message.Id id,
-//                              @NonNull WebimError<SendFileError> error) {
-//          fileToUpload.delete();
-//          String msg;
-//          switch (error.getErrorType()) {
-//            case FILE_TYPE_NOT_ALLOWED:
-//              msg = "type not allowed";
-//              break;
-//            case FILE_SIZE_EXCEEDED:
-//              msg = "file size exceeded";
-//              break;
-//            default:
-//              msg = "unknown";
-//          }
-//          failureCb.invoke(getSimpleMap("message", msg));
-//        }
-//      });
-//    } else {
-//      failureCb.invoke(getSimpleMap("message", "no file"));
-//    }
-//  }
+  @ReactMethod
+  public void tryAttachFile(Callback failureCb, Callback successCb) {
+    fileCbFailure = failureCb;
+    fileCbSuccess = successCb;
+    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+    intent.setType("*/*");
+    intent.addCategory(Intent.CATEGORY_OPENABLE);
+    Activity activity = reactContext.getCurrentActivity();
+    if (activity != null) {
+      activity.startActivityForResult(Intent.createChooser(intent, "Выбор файла"), FILE_SELECT_CODE);
+    } else {
+      failureCb.invoke("pick error");
+      fileCbFailure = null;
+      fileCbSuccess = null;
+    }
+  }
+
+  @ReactMethod
+  public void sendFile(String uri, String name, String mime, String extension, final Callback failureCb, final Callback successCb) {
+    File file = null;
+    try {
+      Activity activity = getContext().getCurrentActivity();
+      if (activity == null) {
+        failureCb.invoke("");
+        return;
+      }
+      InputStream inp = activity.getContentResolver().openInputStream(Uri.parse(uri));
+      if (inp != null) {
+        file = File.createTempFile("webim", extension, activity.getCacheDir());
+        writeFully(file, inp);
+      }
+    } catch (IOException e) {
+      if (file != null) {
+        file.delete();
+      }
+      failureCb.invoke(getSimpleMap("message", "unknown"));
+      return;
+    }
+    if (file != null && name != null) {
+      final File fileToUpload = file;
+      session.getStream().sendFile(fileToUpload, name, mime, new MessageStream.SendFileCallback() {
+        @Override
+        public void onProgress(@NonNull Message.Id id, long sentBytes) {
+        }
+
+        @Override
+        public void onSuccess(@NonNull Message.Id id) {
+          fileToUpload.delete();
+          successCb.invoke(getSimpleMap("id", id.toString()));
+        }
+
+        @Override
+        public void onFailure(@NonNull Message.Id id,
+                              @NonNull WebimError<SendFileError> error) {
+          fileToUpload.delete();
+          String msg;
+          switch (error.getErrorType()) {
+            case FILE_TYPE_NOT_ALLOWED:
+              msg = "type not allowed";
+              break;
+            case FILE_SIZE_EXCEEDED:
+              msg = "file size exceeded";
+              break;
+            default:
+              msg = "unknown";
+          }
+          failureCb.invoke(getSimpleMap("message", msg));
+        }
+      });
+    } else {
+      failureCb.invoke(getSimpleMap("message", "no file"));
+    }
+  }
 
   @Override
   public void messageAdded(@Nullable Message before, @NonNull Message message) {

@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { isWebimError, RNWebim, WebimMessage } from 'rn-webim-chat';
 import { useCallback } from 'react';
+import { isWebimError, RNWebim, WebimMessage } from 'rn-webim-chat';
 import { getHashForChatSign } from '../chat-utils';
 import * as AppConfig from '../../package.json';
 import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -118,6 +118,35 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
     }
   }, [handleError]);
 
+  const onRateOperator = useCallback(
+    async (rate: number) => {
+      try {
+        await RNWebim.rateOperator(rate);
+      } catch (e) {
+        console.log('[Chat][Rate] error: ', JSON.stringify(e));
+        handleError(e);
+      }
+    },
+    [handleError]
+  );
+
+  const onSelectFiles = useCallback(async () => {
+    try {
+      await RNWebim.tryAttachFile();
+    } catch (err: any) {
+      if (err !== 'canceled') {
+        console.log('[Chat][File] failed: ', err);
+        setNotFatalError(JSON.stringify(err));
+      }
+      /*
+       process err.message:
+        - 'file size exceeded' - webim response
+        - 'type not allowed' - webim response
+        - 'canceled' - picker closed by user
+       */
+    }
+  }, []);
+
   return (
     <View style={styles.container}>
       <View style={styles.errorContainer}>
@@ -149,6 +178,15 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
       <View style={styles.buttonsContainer}>
         <Button title={'Read messages'} onPress={onGetAllMessages} />
         <Button title={'Send messages'} onPress={sendTestMessage} />
+      </View>
+
+      <View style={styles.buttonsContainer}>
+        <Button title={'Rate operator (2)'} onPress={() => onRateOperator(2)} />
+        <Button title={'Rate operator (5)'} onPress={() => onRateOperator(5)} />
+      </View>
+
+      <View style={styles.buttonsContainer}>
+        <Button title={'Select attachment'} onPress={onSelectFiles} />
       </View>
     </View>
   );
