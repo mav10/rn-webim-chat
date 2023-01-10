@@ -123,13 +123,13 @@ export class RNWebim {
   }
 
   static rateOperator(rate: number) {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.rateOperator(
-        rate,
-        (error: WebimNativeError) => reject(error),
-        resolve
-      );
-    });
+    return RnWebimChat.rateOperator(rate)
+      .catch((err: WebimNativeError) => {
+        throw err;
+      })
+      .then(() => {
+        return;
+      });
   }
 
   static tryAttachFile() {

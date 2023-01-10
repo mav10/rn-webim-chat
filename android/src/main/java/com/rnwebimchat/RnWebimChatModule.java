@@ -326,33 +326,33 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   }
 
 
-//  @ReactMethod
-//  public void rateOperator(int rate, final Callback errorCallback, final Callback successCallback) {
-//    Operator operator = session.getStream().getCurrentOperator();
-//    if (operator != null) {
-//      session.getStream().rateOperator(operator.getId(), rate, new MessageStream.RateOperatorCallback() {
-//        @Override
-//        public void onSuccess() {
-//          successCallback.invoke(Arguments.createMap());
-//        }
-//
-//        @Override
-//        public void onFailure(@NonNull WebimError<RateOperatorError> rateOperatorError) {
-//          WritableMap errorBody = Arguments.createMap();
-//          errorBody.putString("message", rateOperatorError.getErrorString());
-//          errorBody.putString("errorCode", rateOperatorError.getErrorType().name());
-//          errorBody.putString("errorType", "fatal");
-//          errorCallback.invoke(errorBody);
-//        }
-//      });
-//    } else {
-//      WritableMap errorBody = Arguments.createMap();
-//      errorBody.putString("message", "no operator");
-//      errorBody.putString("errorCode", MessageStream.RateOperatorCallback.RateOperatorError.OPERATOR_NOT_IN_CHAT.name());
-//      errorBody.putString("errorType", "common");
-//      errorCallback.invoke(errorBody);
-//    }
-//  }
+  @ReactMethod
+  public void rateOperator(int rate, final Promise promise) {
+    Operator operator = session.getStream().getCurrentOperator();
+    if (operator != null) {
+      session.getStream().rateOperator(operator.getId(), rate, new MessageStream.RateOperatorCallback() {
+        @Override
+        public void onSuccess() {
+          promise.resolve(Arguments.createMap());
+        }
+
+        @Override
+        public void onFailure(@NonNull WebimError<RateOperatorError> rateOperatorError) {
+          WritableMap errorBody = Arguments.createMap();
+          errorBody.putString("message", rateOperatorError.getErrorString());
+          errorBody.putString("errorCode", rateOperatorError.getErrorType().name());
+          errorBody.putString("errorType", "fatal");
+          promise.reject("Operator rate on failure", errorBody);
+        }
+      });
+    } else {
+      WritableMap errorBody = Arguments.createMap();
+      errorBody.putString("message", "no operator");
+      errorBody.putString("errorCode", MessageStream.RateOperatorCallback.RateOperatorError.OPERATOR_NOT_IN_CHAT.name());
+      errorBody.putString("errorType", "common");
+      promise.reject("Operator rate on failed", errorBody);
+    }
+  }
 
 //  @ReactMethod
 //  public void tryAttachFile(Callback failureCb, Callback successCb) {
