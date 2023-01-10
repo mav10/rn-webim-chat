@@ -5,7 +5,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     var chatSession: WebimSession?
     var messageStream: MessageStream!
     var messageTracker: MessageTracker?
-    
+
     override init() {
         super.init()
     }
@@ -31,49 +31,49 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             let title: String? = builderData.value(forKey: "title") as? String;
             let pushToken: String? = builderData.value(forKey: "pushToken") as? String;
             let prechat: String? = builderData.value(forKey: "prechat") as? String;
-            
+
             if(accountJSONAsString != nil) {
                 sessionBuilder = sessionBuilder.set(visitorFieldsJSONData: accountJSONAsString!.data(using: .utf8)!)
             }
-            
+
             if(providedAuthorizationToken != nil) {
                 sessionBuilder = sessionBuilder.set(
                     providedAuthorizationTokenStateListener: nil,
                     providedAuthorizationToken: providedAuthorizationToken)
             }
-            
+
             if(appVersion != nil) {
                 sessionBuilder = sessionBuilder.set(appVersion: appVersion)
             }
-            
+
             if(clearVisitorData != nil) {
                 sessionBuilder = sessionBuilder.set(isVisitorDataClearingEnabled: clearVisitorData!)
             }
-            
+
             if(storeHistoryLocally != nil) {
                 sessionBuilder = sessionBuilder.set(isLocalHistoryStoragingEnabled: storeHistoryLocally!)
             }
-            
+
             if(title != nil) {
                 sessionBuilder = sessionBuilder.set(pageTitle: title)
             }
-            
+
             if(pushToken != nil) {
                 sessionBuilder = sessionBuilder
                     .set(remoteNotificationSystem: .apns)
                     .set(deviceToken: pushToken)
             }
-            
+
             if(prechat != nil) {
                 sessionBuilder = sessionBuilder.set(prechat: prechat!)
             }
             do {
                 chatSession = try sessionBuilder.build()
             } catch {
-                reject("Initi result failed", "Failure text", error)
+                reject("Init result failed", "Failure text", error)
             }
         }
-        
+
         do {
             messageStream = chatSession!.getStream();
             try messageStream.setChatRead();
@@ -84,10 +84,10 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         } catch {
             reject("Start chat failed", "Failure text", error)
         }
-        
+
         resolve(nil)
   }
-    
+
     @objc(resumeSession:withRejecter:)
     func resumeSession(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         do {
@@ -97,7 +97,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             reject("Resume result failed", "Failure text", nil)
         }
     }
-    
+
     @objc(pauseSession:withRejecter:)
     func pauseSession(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         do {
@@ -106,7 +106,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             reject("Pause result failed", "Failure text", nil)
         }
     }
-    
+
     @objc(destroySession:withResolver:withRejecter:)
     func destroySession(clearuserData: Bool, resolve:RCTPromiseResolveBlock, reject:RCTPromiseRejectBlock) -> Void {
         if(messageStream != nil) {
@@ -117,7 +117,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
                 reject(error.localizedDescription,  "Error 2 text", error)
             }
         }
-        
+
         if(chatSession != nil) {
             do {
                 if(clearuserData) {
@@ -128,17 +128,17 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             } catch {
                 reject(error.localizedDescription,  "Error 3 text", error)
             }
-            
+
             chatSession = nil
         }
-        
+
         if (messageTracker != nil) {
             messageTracker = nil
         }
-        
+
         resolve(nil)
     }
-    
+
     @objc(getAllMessages:withRejecter:)
     func getAllMessages(resolve: @escaping RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
         do {
@@ -155,7 +155,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             reject(error.localizedDescription,  "Error 2 text", error)
         }
     }
-    
+
     @objc(getLastMessages:withResolver:withRejecter:)
     func getLastMessages(limit: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
         do {
@@ -173,7 +173,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             reject(error.localizedDescription,  "Error 2 text", error)
         }
     }
-    
+
     @objc(getNextMessages:withResolver:withRejecter:)
     func getNextMessages(limit: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
         do {
@@ -189,18 +189,18 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             reject(error.localizedDescription,  "Error 2 text", error)
         }
     }
-    
+
     @objc(send:withResolver:withRejecter:)
     func send(message: String, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
         do {
             let _id = try messageStream?.send(message: message)
-            resolve(_id);
             try messageStream?.setChatRead()
+            resolve(_id);
         } catch {
             reject(error.localizedDescription,  "Error 2 text", error)
         }
     }
-    
+
     @objc(readMessages:withRejecter:)
     func readMessages(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
         do {
@@ -210,38 +210,38 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             reject(error.localizedDescription,  "Error 2 text", error)
         }
     }
-    
-    
+
+
     // EventEmitter Events
     @objc(supportedEvents)
     override open func supportedEvents() -> [String] {
         return ["newMessage", "removeMessage", "changedMessage", "allMessagesRemoved", "tokenUpdated", "error", "onlineState", "typing", "unreadCount"]
     }
-    
+
     public func added(message newMessage: Message, after previousMessage: Message?) {
         self.sendEvent(withName: "newMessage", body: self.messageToJson(message: newMessage))
     }
-    
+
     public func removed(message: Message) {
         self.sendEvent(withName: "removeMessage", body: self.messageToJson(message: message))
     }
-    
+
     public func removedAllMessages() {
         self.sendEvent(withName: "allMessagesRemoved", body: [])
     }
-    
+
     public func changed(message oldVersion: Message, to newVersion: Message) {
         self.sendEvent(withName: "changedMessage", body: ["from": self.messageToJson(message: oldVersion), "to": self.messageToJson(message: newVersion)])
     }
-    
+
     public func onOperatorTypingStateChanged(isTyping: Bool) {
         self.sendEvent(withName: "typing", body: ["isTyping": isTyping])
     }
-    
+
     public func changedUnreadByVisitorMessageCountTo(newValue: Int) {
         self.sendEvent(withName: "unreadCount", body: newValue)
     }
-    
+
     // Mapping section
     func messageToJson(message: Message) -> [String: Any?] {
         let result = [
@@ -257,12 +257,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             "canEdit": message.canBeEdited(),
             "canReply": message.canBeReplied(),
             "isEdited": message.isEdited(),
-            
+
             "canReact": message.canVisitorReact(),
             "canChangeReaction": message.canVisitorChangeReaction(),
             "visitorReaction": message.getVisitorReaction(),
             "stickerId": message.getSticker()?.getStickerId(),
-            
+
             "operatorId": message.getOperatorID(),
             "quote": message.getQuote() != nil ? self.quetoToDictionary(quote: message.getQuote()!) : nil,
             "attachment": message.getData()?.getAttachment() != nil ? self.attachmentToJson(attachment: message.getData()?.getAttachment()) : nil,
@@ -270,7 +270,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
         return result
     }
-    
+
     func typeToString(messageType: MessageType) -> String {
         switch (messageType) {
             case .actionRequest:
@@ -297,7 +297,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
                 return "";
         }
     }
-    
+
     func statusToString(messageStatus: MessageSendStatus) -> String {
         switch (messageStatus) {
         case .sending:
@@ -306,7 +306,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             return "SENT";
         }
     }
-    
+
     func quoteStateToString(state: QuoteState) -> String {
         switch (state) {
         case .filled:
@@ -317,7 +317,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             return "PENDING";
         }
     }
-    
+
     func quetoToDictionary(quote: Quote) -> [String: Any?] {
         let result = [
             "authorId": quote.getAuthorID(),
@@ -329,11 +329,11 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             "timestamp": quote.getMessageTimestamp()!.timeIntervalSince1970 * 1000,
             "attachement":  quote.getMessageAttachment() != nil ? self.attachmentToJson(attachment: quote.getMessageAttachment() as? MessageAttachment) : nil,
         ] as [String : Any?]
-        
+
         return result;
     }
-    
-    
+
+
     func attachmentToJson(attachment: MessageAttachment?) -> [String: Any?]  {
         return [
             "contentType": attachment?.getFileInfo().getContentType(),

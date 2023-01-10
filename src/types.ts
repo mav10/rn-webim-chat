@@ -8,6 +8,7 @@ export type SessionBuilderParams = {
   storeHistoryLocally?: boolean;
   title?: string;
   pushToken?: string;
+  prechat?: string;
 };
 
 export enum WebimEvents {

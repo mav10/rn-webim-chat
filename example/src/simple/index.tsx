@@ -84,7 +84,7 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
 
   const onGetAllMessages = useCallback(async () => {
     try {
-      const messageResult = await RNWebim.getLastMessages(5);
+      const messageResult = await RNWebim.getAllMessages();
       console.log('[Chat][All Messages] get: ', messageResult);
 
       setResult(messageResult);
@@ -121,8 +121,8 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
   return (
     <View style={styles.container}>
       <View style={styles.errorContainer}>
-        {fatalError && <Text style={styles.fatalError}>{fatalError}</Text>}
-        {notFatalError && (
+        {!!fatalError && <Text style={styles.fatalError}>{fatalError}</Text>}
+        {!!notFatalError && (
           <Text style={styles.commonError}>{notFatalError}</Text>
         )}
       </View>
@@ -130,7 +130,7 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
       <View style={styles.messageContainer}>
         <Text>Result:messages</Text>
         <ScrollView>
-          {result.map((x) => {
+          {result?.map((x) => {
             return (
               <View key={x.id} style={styles.message}>
                 <Text>{x.text}</Text>

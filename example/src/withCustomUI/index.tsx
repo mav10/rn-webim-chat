@@ -134,7 +134,9 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
           }}
           inverted={true}
         />
-        {unread && <Text style={StyleSheet.absoluteFillObject}>{unread}</Text>}
+        {!!unread && (
+          <Text style={StyleSheet.absoluteFillObject}>{unread}</Text>
+        )}
       </>
     );
   }

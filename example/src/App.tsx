@@ -5,8 +5,8 @@ import { SimpleChatExample } from './simple';
 import { CustomChat } from './withCustomUI';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-const PRIVATE_KEY = '437d574200394d92ba3aa9fe619eb02c';
-const CHAT_SERVICE_ACCOUNT = 'comrnwebimchatexample';
+const PRIVATE_KEY = '15e4a2c08c0822b79a8b5b0f851c5ac4';
+const CHAT_SERVICE_ACCOUNT = 'comrnwebimchatexample001';
 
 const acc = {
   fields: {
