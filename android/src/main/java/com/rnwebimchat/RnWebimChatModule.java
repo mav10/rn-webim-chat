@@ -235,7 +235,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   }
 
   @ReactMethod
-  public void getAllMessages(final Promise promise) {
+  public void getAllMessages(Promise promise) {
     try {
       tracker.getAllMessages(getMessagesCallback(promise));
     } catch (NullPointerException e) {
@@ -294,9 +294,9 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   @ReactMethod
   public void send(String message, final Promise promise) {
     try {
-      final Message.Id msgId = session.getStream().sendMessage(message);
+      Message.Id msgId = session.getStream().sendMessage(message);
       session.getStream().setChatRead();
-      promise.resolve(msgId);
+      promise.resolve(msgId.toString());
     } catch (NullPointerException e) {
       WritableMap errorBody = Arguments.createMap();
       errorBody.putString("message", "Can not send message");
@@ -430,16 +430,12 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   @Override
   public void messageAdded(@Nullable Message before, @NonNull Message message) {
-    final WritableMap msg = Arguments.createMap();
-    msg.putMap("msg", messageToJson(message));
-    emitDeviceEvent("newMessage", msg);
+    emitDeviceEvent("newMessage", messageToJson(message));
   }
 
   @Override
   public void messageRemoved(@NonNull Message message) {
-    final WritableMap msg = Arguments.createMap();
-    msg.putMap("msg", messageToJson(message));
-    emitDeviceEvent("removeMessage", msg);
+    emitDeviceEvent("removeMessage", messageToJson(message));
   }
 
   @Override
@@ -582,23 +578,18 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     }
   }
 
-  private WritableMap messagesToJson(@NonNull List<? extends Message> messages) {
-    WritableMap response = Arguments.createMap();
+  private WritableArray messagesToJson(@NonNull List<? extends Message> messages) {
     WritableArray jsonMessages = Arguments.createArray();
     for (Message message : messages) {
       jsonMessages.pushMap(messageToJson(message));
     }
-    response.putArray("messages", jsonMessages);
-    return response;
+    return jsonMessages;
   }
 
-  private MessageTracker.GetMessagesCallback getMessagesCallback(final Promise promise) {
-    return new MessageTracker.GetMessagesCallback() {
-      @Override
-      public void receive(@NonNull List<? extends Message> messages) {
-        WritableMap response = messagesToJson(messages);
-        promise.resolve(response);
-      }
+  private MessageTracker.GetMessagesCallback getMessagesCallback(Promise promise) {
+    return messages -> {
+      WritableArray response = messagesToJson(messages);
+      promise.resolve(response);
     };
   }
 

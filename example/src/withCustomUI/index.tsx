@@ -65,7 +65,7 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
   }, [messages]);
 
   const loadLastMessages = useCallback(async () => {
-    const webimMessages = await RNWebim.getAllMessages();
+    const webimMessages = await RNWebim.getLastMessages(MESSAGE_BATCH_SIZE);
     setMessages(
       webimMessages
         .map(mapWebimToChatMessage)

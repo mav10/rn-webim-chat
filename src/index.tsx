@@ -82,7 +82,7 @@ export class RNWebim {
     limit: number = DEFAULT_MESSAGES_LIMIT
   ): Promise<WebimMessage[]> {
     return RnWebimChat.getLastMessages(limit)
-      .catch((err: any) => {
+      .catch((err: WebimNativeError) => {
         throw err;
       })
       .then((messages: WebimMessage[]) => {
@@ -94,7 +94,7 @@ export class RNWebim {
     limit: number = DEFAULT_MESSAGES_LIMIT
   ): Promise<WebimMessage[]> {
     return RnWebimChat.getNextMessages(limit)
-      .catch((err: any) => {
+      .catch((err: WebimNativeError) => {
         throw err;
       })
       .then((messages: WebimMessage[]) => {
@@ -104,7 +104,7 @@ export class RNWebim {
 
   static getAllMessages(): Promise<WebimMessage[]> {
     return RnWebimChat.getAllMessages()
-      .catch((err: any) => {
+      .catch((err: WebimNativeError) => {
         throw err;
       })
       .then((messages: WebimMessage[]) => {
