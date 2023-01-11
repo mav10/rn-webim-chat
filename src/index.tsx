@@ -122,6 +122,16 @@ export class RNWebim {
       });
   }
 
+  static readMessages(): Promise<void> {
+    return RnWebimChat.readMessages()
+      .catch((err: WebimNativeError) => {
+        throw err;
+      })
+      .then(() => {
+        return;
+      });
+  }
+
   static rateOperator(rate: number) {
     return RnWebimChat.rateOperator(rate)
       .catch((err: WebimNativeError) => {
