@@ -1,13 +1,38 @@
 import WebimClientLibrary
 
+
 @objc(RnWebimChat)
-open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener {
+open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, SendFileCompletionHandler {
+    
     var chatSession: WebimSession?
     var messageStream: MessageStream!
     var messageTracker: MessageTracker?
+    
+    private var pickerController: UIImagePickerController;
+    private weak var delegate: ImagePickerDelegate?;
+    var resolveAttachCallback: RCTResponseSenderBlock?;
+    var rejectAttachCallback: RCTResponseSenderBlock?;
+    
+    var resolveSendingAttachCallback: RCTResponseSenderBlock?;
+    var rejectSendingAttachCallback: RCTResponseSenderBlock?;
 
+    // SendFileCompletionHandler - success callback
+    public func onSuccess(messageID: String) {
+        resolveSendingAttachCallback!([["id": messageID]])
+    }
+    
+    // SendFileCompletionHandler - fail callback
+    public func onFailure(messageID: String, error: SendFileError) {
+        resolveSendingAttachCallback!([["code": "Code 1", "text": "Text 2" + messageID, "error": error.localizedDescription]])
+    }
+    
+    
     override init() {
-        super.init()
+        self.pickerController = UIImagePickerController();
+        super.init();
+        self.pickerController.delegate = self
+        self.pickerController.allowsEditing = true
+        self.pickerController.mediaTypes = ["public.image"]
     }
 
 
@@ -159,8 +184,6 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     @objc(getLastMessages:withResolver:withRejecter:)
     func getLastMessages(limit: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
         do {
-            let linitation = limit.intValue
-            let linitation2 = limit.stringValue
             try messageTracker?.getLastMessages(byLimit: limit.intValue, completion: { result in
                 var messages: [[String: Any]] = []
                 for message in result {
@@ -211,7 +234,56 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         }
     }
 
+    @objc(rateOperator:withResolver:withRejecter:)
+    func rateOperator(rate: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
+        do {
+            let currentOperator = messageStream.getCurrentOperator();
+            if (currentOperator != nil) {
+                
+                try messageStream.rateOperatorWith(id: currentOperator?.getID(), byRating: rate.intValue, completionHandler: RateCompletionWrapper(resolve: resolve, reject: reject))
+            }
+        } catch {
+            reject(error.localizedDescription,  "Error 2 text", error)
+        }
+    }
+    
+    @objc(tryAttachFile:withResolver:)
+    func tryAttachFile(reject: @escaping RCTResponseSenderBlock, resolve: @escaping RCTResponseSenderBlock) -> Void {
+            DispatchQueue.main.async {
+              self.resolveAttachCallback = resolve
+              self.rejectAttachCallback = reject
+              let view = RCTPresentedViewController()
+              view?.present(self.pickerController, animated: true)
+            }
+    }
+    
+    @objc(sendFile:withName:withMime:withExtention:withRejecter:withResolver:)
+    func sendFile(uri: String, name: String, mime: String, extention: String, reject: @escaping RCTResponseSenderBlock, resolve: @escaping RCTResponseSenderBlock) {
+        do {
+            self.resolveSendingAttachCallback = resolve
+            self.rejectSendingAttachCallback = reject
+            let imageData = try Data(contentsOf: URL(string: uri)!)
+//            if (extention == "jpg" || extention == "jpeg") {
+//                imageData = UIImageJPEGRepresentation (img, 1.0f);
+//            } else {
+//                imageData = UIImagePNGRepresentation(img);
+//            }
+            _ = try messageStream.send(file: imageData, filename: name, mimeType: mime, completionHandler: self)
+        } catch {
+            reject([error])
+        }
+    }
 
+    @objc
+    override public static func requiresMainQueueSetup() -> Bool {
+        return true
+    }
+    
+    @objc
+    private func pickerController(_ controller: UIImagePickerController) {
+        controller.dismiss(animated: true, completion: nil)
+    }
+    
     // EventEmitter Events
     @objc(supportedEvents)
     override open func supportedEvents() -> [String] {
@@ -343,5 +415,73 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             "url": attachment?.getFileInfo().getURL()?.absoluteString
         ];
     }
+}
 
+class RateCompletionWrapper : RateOperatorCompletionHandler {
+    
+    let resolver: RCTPromiseResolveBlock
+    let rejecter: RCTPromiseRejectBlock
+    
+    init(resolve: @escaping RCTPromiseResolveBlock,  reject: @escaping RCTPromiseRejectBlock) {
+        self.resolver = resolve
+        self.rejecter = reject
+    }
+    
+    func onSuccess() {
+        resolver(nil)
+    }
+    
+    func onFailure(error: RateOperatorError) {
+        rejecter("Code 1", "Text 2", error)
+    }
+}
+
+class SendFilesCompletionWrapper : SendFileCompletionHandler {
+    let resolver: RCTResponseSenderBlock
+    let rejecter: RCTResponseSenderBlock
+    
+    init(resolve: @escaping RCTResponseSenderBlock,  reject: @escaping RCTResponseSenderBlock) {
+        self.resolver = resolve
+        self.rejecter = reject
+    }
+
+    func onSuccess(messageID: String) {
+        resolver([["id": messageID]])
+    }
+
+    func onFailure(messageID: String, error: SendFileError) {
+        rejecter([["code": "Code 1", "text": "Text 2" + messageID, "error": error.localizedDescription]])
+    }
+}
+
+public protocol ImagePickerDelegate: AnyObject {
+    func didSelect(image: UIImage?)
+}
+
+extension RnWebimChat: UIImagePickerControllerDelegate {
+  public func imagePickerController(_ picker: UIImagePickerController,
+                                    didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+    if let imgUrl = info[UIImagePickerController.InfoKey.imageURL] as? URL {
+        let imgName = imgUrl.lastPathComponent
+        let documentDirectory = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first
+        let localPath = documentDirectory?.appending(imgName)
+        let image = info[UIImagePickerController.InfoKey.originalImage] as! UIImage
+        let data = image.pngData()! as NSData
+        data.write(toFile: localPath!, atomically: true)
+        let photoURL = URL.init(fileURLWithPath: localPath!)
+
+        let extensionName = photoURL.pathExtension.lowercased()
+        self.pickerController(picker)
+        self.resolveAttachCallback!([[
+            "uri": photoURL.absoluteString,
+            "name": imgName,
+            "mime": "image/" + extensionName,
+            "extension": extensionName
+        ]])
+    }
+  }
+}
+
+extension RnWebimChat: UINavigationControllerDelegate {
+  
 }

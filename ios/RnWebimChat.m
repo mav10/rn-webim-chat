@@ -47,15 +47,15 @@ RCT_EXTERN_METHOD(send:(NSString*)message
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(rateOperator:(NSNumber*)rating
+RCT_EXTERN_METHOD(rateOperator:(NSNumber* _Nonnull)rating
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(tryAttachFile:(RCTPromiseResolveBlock)resolve
-                  withRejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(tryAttachFile:(RCTResponseSenderBlock)reject
+                  withResolver:(RCTResponseSenderBlock)resolve)
 
 RCT_EXTERN_METHOD(sendFile:(NSString*)uri withName:(NSString*)name withMime:(NSString*)mime withExtention:(NSString*)extention
-                  withResolver:(RCTPromiseResolveBlock)resolve
-                  withRejecter:(RCTPromiseRejectBlock)reject)
+                  withRejecter:(RCTResponseSenderBlock)reject
+                  withResolver:(RCTResponseSenderBlock)resolve)
 
 @end
