@@ -168,6 +168,7 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
       console.log('File result: ', fileResult);
     } catch (err: any) {
       const webimError = err as WebimNativeError;
+      console.log('Chat][File] error: ', webimError);
       if (webimError.errorType === 'common') {
         setNotFatalError(
           webimError.message + `(Code: ${webimError.errorCode})`

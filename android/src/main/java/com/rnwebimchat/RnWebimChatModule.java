@@ -419,38 +419,46 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       failureCb.invoke(errorBody);
       return;
     }
-    if (file != null && name != null) {
-      final File fileToUpload = file;
-      session.getStream().sendFile(fileToUpload, name, mime, new MessageStream.SendFileCallback() {
-        // TODO: not implemented by SDK yet
-        @Override
-        public void onProgress(@NonNull Message.Id id, long sentBytes) {
-          WritableMap result = Arguments.createMap();
-          result.putString("id", id.toString());
-          result.putString("bytes", Long.toString(sentBytes));
-          result.putString("fullSize", Long.toString(fileToUpload.getTotalSpace()));
-          emitDeviceEvent("fileUploading", result);
-        }
 
-        @Override
-        public void onSuccess(@NonNull Message.Id id) {
-          fileToUpload.delete();
-          successCb.invoke(getSimpleMap("id", id.toString()));
-        }
+    try {
+      if (file != null && name != null) {
+        final File fileToUpload = file;
+        session.getStream().sendFile(fileToUpload, name, mime, new MessageStream.SendFileCallback() {
+          // TODO: not implemented by SDK yet
+          @Override
+          public void onProgress(@NonNull Message.Id id, long sentBytes) {
+            WritableMap result = Arguments.createMap();
+            result.putString("id", id.toString());
+            result.putString("bytes", Long.toString(sentBytes));
+            result.putString("fullSize", Long.toString(fileToUpload.getTotalSpace()));
+            emitDeviceEvent("fileUploading", result);
+          }
 
-        @Override
-        public void onFailure(@NonNull Message.Id id,
-                              @NonNull WebimError<SendFileError> error) {
-          fileToUpload.delete();
-          WritableMap errorBody = getErrorMap(error.getErrorType().name(),
-            error.getErrorString(),
-            true);
-          failureCb.invoke(errorBody);
-        }
-      });
-    } else {
-      WritableMap errorBody = getErrorMap(MessageStream.SendFileCallback.SendFileError.FILE_NOT_FOUND.name(),
-        "File is not provided",
+          @Override
+          public void onSuccess(@NonNull Message.Id id) {
+            fileToUpload.delete();
+            successCb.invoke(getSimpleMap("id", id.toString()));
+          }
+
+          @Override
+          public void onFailure(@NonNull Message.Id id,
+                                @NonNull WebimError<SendFileError> error) {
+            fileToUpload.delete();
+            WritableMap errorBody = getErrorMap(error.getErrorType().name(),
+              error.getErrorString(),
+              true);
+            failureCb.invoke(errorBody);
+          }
+        });
+      } else {
+        WritableMap errorBody = getErrorMap(MessageStream.SendFileCallback.SendFileError.FILE_NOT_FOUND.name(),
+          "File is not provided",
+          true);
+        failureCb.invoke(errorBody);
+      }
+    } catch (Exception e) {
+      WritableMap errorBody = getErrorMap(FatalErrorType.UNKNOWN.name(),
+        e.getLocalizedMessage(),
         true);
       failureCb.invoke(errorBody);
     }
@@ -460,7 +468,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   public void getCurrentOperator(Promise promise) {
     try {
       Operator operator = session.getStream().getCurrentOperator();
-      if(operator != null) {
+      if (operator != null) {
         WritableMap operatorJson = Arguments.createMap();
         operatorJson.putString("id", operator.getId().toString());
         operatorJson.putString("name", operator.getName());
