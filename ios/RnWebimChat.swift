@@ -3,16 +3,16 @@ import WebimClientLibrary
 
 @objc(RnWebimChat)
 open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, SendFileCompletionHandler {
-    
+
     var chatSession: WebimSession?
     var messageStream: MessageStream!
     var messageTracker: MessageTracker?
-    
+
     private var pickerController: UIImagePickerController;
     private weak var delegate: ImagePickerDelegate?;
     var resolveAttachCallback: RCTResponseSenderBlock?;
     var rejectAttachCallback: RCTResponseSenderBlock?;
-    
+
     var resolveSendingAttachCallback: RCTResponseSenderBlock?;
     var rejectSendingAttachCallback: RCTResponseSenderBlock?;
 
@@ -20,13 +20,13 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     public func onSuccess(messageID: String) {
         resolveSendingAttachCallback!([["id": messageID]])
     }
-    
+
     // SendFileCompletionHandler - fail callback
     public func onFailure(messageID: String, error: SendFileError) {
         resolveSendingAttachCallback!([["code": "Code 1", "text": "Text 2" + messageID, "error": error.localizedDescription]])
     }
-    
-    
+
+
     override init() {
         self.pickerController = UIImagePickerController();
         super.init();
@@ -239,14 +239,14 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         do {
             let currentOperator = messageStream.getCurrentOperator();
             if (currentOperator != nil) {
-                
+
                 try messageStream.rateOperatorWith(id: currentOperator?.getID(), byRating: rate.intValue, completionHandler: RateCompletionWrapper(resolve: resolve, reject: reject))
             }
         } catch {
             reject(error.localizedDescription,  "Error 2 text", error)
         }
     }
-    
+
     @objc(tryAttachFile:withResolver:)
     func tryAttachFile(reject: @escaping RCTResponseSenderBlock, resolve: @escaping RCTResponseSenderBlock) -> Void {
             DispatchQueue.main.async {
@@ -256,7 +256,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
               view?.present(self.pickerController, animated: true)
             }
     }
-    
+
     @objc(sendFile:withName:withMime:withExtention:withRejecter:withResolver:)
     func sendFile(uri: String, name: String, mime: String, extention: String, reject: @escaping RCTResponseSenderBlock, resolve: @escaping RCTResponseSenderBlock) {
         do {
@@ -278,16 +278,16 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     override public static func requiresMainQueueSetup() -> Bool {
         return true
     }
-    
+
     @objc
     private func pickerController(_ controller: UIImagePickerController) {
         controller.dismiss(animated: true, completion: nil)
     }
-    
+
     // EventEmitter Events
     @objc(supportedEvents)
     override open func supportedEvents() -> [String] {
-        return ["newMessage", "removeMessage", "changedMessage", "allMessagesRemoved", "tokenUpdated", "error", "onlineState", "typing", "unreadCount"]
+        return ["newMessage", "removeMessage", "changedMessage", "allMessagesRemoved", "tokenUpdated", "error", "onlineState", "typing", "unreadCount", "fileUploading"]
     }
 
     public func added(message newMessage: Message, after previousMessage: Message?) {
@@ -418,19 +418,19 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 }
 
 class RateCompletionWrapper : RateOperatorCompletionHandler {
-    
+
     let resolver: RCTPromiseResolveBlock
     let rejecter: RCTPromiseRejectBlock
-    
+
     init(resolve: @escaping RCTPromiseResolveBlock,  reject: @escaping RCTPromiseRejectBlock) {
         self.resolver = resolve
         self.rejecter = reject
     }
-    
+
     func onSuccess() {
         resolver(nil)
     }
-    
+
     func onFailure(error: RateOperatorError) {
         rejecter("Code 1", "Text 2", error)
     }
@@ -439,7 +439,7 @@ class RateCompletionWrapper : RateOperatorCompletionHandler {
 class SendFilesCompletionWrapper : SendFileCompletionHandler {
     let resolver: RCTResponseSenderBlock
     let rejecter: RCTResponseSenderBlock
-    
+
     init(resolve: @escaping RCTResponseSenderBlock,  reject: @escaping RCTResponseSenderBlock) {
         self.resolver = resolve
         self.rejecter = reject
@@ -483,5 +483,5 @@ extension RnWebimChat: UIImagePickerControllerDelegate {
 }
 
 extension RnWebimChat: UINavigationControllerDelegate {
-  
+
 }

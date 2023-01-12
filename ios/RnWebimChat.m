@@ -42,9 +42,11 @@ RCT_EXTERN_METHOD(getAllMessages:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(readMessages:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
-
 RCT_EXTERN_METHOD(send:(NSString*)message
                   withResolver:(RCTPromiseResolveBlock)resolve
+                  withRejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(getCurrentOperator:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(rateOperator:(NSNumber* _Nonnull)rating
