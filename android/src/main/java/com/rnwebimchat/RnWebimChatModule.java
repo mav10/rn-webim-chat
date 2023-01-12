@@ -1,5 +1,7 @@
 package com.rnwebimchat;
 
+import static java.lang.String.format;
+
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
@@ -29,6 +31,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import ru.webim.android.sdk.FatalErrorHandler;
@@ -42,6 +45,7 @@ import ru.webim.android.sdk.ProvidedAuthorizationTokenStateListener;
 import ru.webim.android.sdk.Webim;
 import ru.webim.android.sdk.WebimError;
 import ru.webim.android.sdk.WebimSession;
+import ru.webim.android.sdk.impl.WebimErrorImpl;
 
 @ReactModule(name = RnWebimChatModule.NAME)
 public class RnWebimChatModule extends ReactContextBaseJavaModule implements
@@ -85,14 +89,18 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
                 fileCbSuccess.invoke(_data);
               }
             } else {
-              fileCbFailure.invoke(getSimpleMap("message", "unknown"));
+              WritableMap errorBody = getErrorMap(MessageStream.SendFileCallback.SendFileError.UNKNOWN.name(),
+                "File selection unknown reason",
+                true);
+              fileCbFailure.invoke(errorBody);
             }
             clearAttachCallbacks();
             return;
           }
           if (resultCode != Activity.RESULT_CANCELED) {
             if (fileCbFailure != null) {
-              fileCbFailure.invoke(getSimpleMap("message", "canceled"));
+              WritableMap errorBody = getErrorMap("SELECT_FILE_CANCELED", "Canceled by user", false);
+              fileCbFailure.invoke(errorBody);
             }
             clearAttachCallbacks();
           }
@@ -180,29 +188,31 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       session.getStream().setUnreadByVisitorMessageCountChangeListener(this);
       session.getStream().setOperatorTypingListener(this);
       promise.resolve(Arguments.createMap());
+    } catch (IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
     } catch (Exception e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Resume null session");
-      errorBody.putString("errorCode", "NULL_SESSION");
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Init result failed", e, errorBody);
+      handleError(promise, FatalErrorType.UNKNOWN.name(), "Session initializing failed", true, e);
     }
   }
 
   @ReactMethod
   public void resumeSession(Promise promise) {
-    if (session == null) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Resume null session");
-      errorBody.putString("errorCode", "NULL_SESSION");
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Resume session failed", errorBody);
-    }
+    try {
+      if (session == null) {
+        throw new NullPointerException("NULL_SESSION");
+      }
 
-    session.resume();
-    session.getStream().startChat();
-    session.getStream().setChatRead();
-    promise.resolve(Arguments.createMap());
+      session.resume();
+      session.getStream().startChat();
+      session.getStream().setChatRead();
+      promise.resolve(Arguments.createMap());
+    } catch (NullPointerException e) {
+      handleError(promise, "NULL_SESSION", "Resume null session", true, e);
+    } catch (Exception e) {
+      handleError(promise, FatalErrorType.UNKNOWN.name(), e.getLocalizedMessage(), true, e);
+    }
   }
 
   @ReactMethod
@@ -210,28 +220,30 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     try {
       session.pause();
       promise.resolve(Arguments.createMap());
+    } catch (NullPointerException e) {
+      handleError(promise, "NULL_SESSION", "Pause null session", true, e);
     } catch (Exception e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Pause session failed");
-      errorBody.putString("errorCode", "PAUSE_SESSION");
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Pause session result failed", e, errorBody);
+      handleError(promise, "WRONG_SESSION", "Pause session failed", true, e);
     }
   }
 
   @ReactMethod
   public void destroySession(Boolean clearData, Promise promise) {
-    if (session != null) {
-      session.getStream().closeChat();
-      tracker.destroy();
-      if (clearData) {
-        session.destroyWithClearVisitorData();
-      } else {
-        session.destroy();
+    try {
+      if (session != null) {
+        session.getStream().closeChat();
+        tracker.destroy();
+        if (clearData) {
+          session.destroyWithClearVisitorData();
+        } else {
+          session.destroy();
+        }
+        session = null;
       }
-      session = null;
+      promise.resolve(Arguments.createMap());
+    } catch (Exception e) {
+      handleError(promise, FatalErrorType.UNKNOWN.name(), "Destroy session failed", false, e);
     }
-    promise.resolve(Arguments.createMap());
   }
 
   @ReactMethod
@@ -239,17 +251,13 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     try {
       tracker.getAllMessages(getMessagesCallback(promise));
     } catch (NullPointerException e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Can not read all messages");
-      errorBody.putString("errorCode", "NULL_SESSION");
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Getting all messages failed", e, errorBody);
+      handleError(promise, "NULL_SESSION", "Can not read all messages as session is destroyed", true, e);
     } catch (Exception e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Can not read all messages");
-      errorBody.putString("errorCode", FatalErrorType.UNKNOWN.name());
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Getting all messages failed", e, errorBody);
+      handleError(promise,
+        FatalErrorType.UNKNOWN.name(),
+        String.format(Locale.ENGLISH, "Can not read all messages. Details: %s", e.getLocalizedMessage()),
+        true,
+        e);
     }
   }
 
@@ -258,17 +266,17 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     try {
       tracker.getLastMessages(limit, getMessagesCallback(promise));
     } catch (NullPointerException e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Can not read all messages");
-      errorBody.putString("errorCode", "NULL_SESSION");
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Getting last messages failed", e, errorBody);
+      handleError(promise,
+        "NULL_SESSION",
+        String.format(Locale.ENGLISH, "Can not read last %d message(s) as session or message tracker is destroyed", limit),
+        true,
+        e);
     } catch (Exception e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Can not get last messages");
-      errorBody.putString("errorCode", FatalErrorType.UNKNOWN.name());
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Getting last messages failed", e, errorBody);
+      handleError(promise,
+        FatalErrorType.UNKNOWN.name(),
+        format(Locale.ENGLISH, "Can not read last %d message(s). Details: %s", limit, e.getLocalizedMessage()),
+        true,
+        e);
     }
   }
 
@@ -277,17 +285,17 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     try {
       tracker.getNextMessages(limit, getMessagesCallback(promise));
     } catch (NullPointerException e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Can not get next messages");
-      errorBody.putString("errorCode", "NULL_SESSION");
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Getting next messages failed", e, errorBody);
+      handleError(promise,
+        "NULL_SESSION",
+        String.format(Locale.ENGLISH, "Can not read next %d message(s) as session or message tracker is destroyed", limit),
+        true,
+        e);
     } catch (Exception e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Can not read all messages");
-      errorBody.putString("errorCode", FatalErrorType.UNKNOWN.name());
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Getting next messages failed", e, errorBody);
+      handleError(promise,
+        FatalErrorType.UNKNOWN.name(),
+        format(Locale.ENGLISH, "Can not read next %d message(s). Details: %s", limit, e.getLocalizedMessage()),
+        true,
+        e);
     }
   }
 
@@ -298,17 +306,17 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       session.getStream().setChatRead();
       promise.resolve(msgId.toString());
     } catch (NullPointerException e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Can not send message");
-      errorBody.putString("errorCode", "NULL_SESSION");
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Sending message failed", e, errorBody);
+      handleError(promise,
+        "NULL_SESSION",
+        "Can not send a message as session or stream is destroyed",
+        true,
+        e);
     } catch (Exception e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Can not send message");
-      errorBody.putString("errorCode", FatalErrorType.UNKNOWN.name());
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Sending message failed", e, errorBody);
+      handleError(promise,
+        FatalErrorType.UNKNOWN.name(),
+        e.getLocalizedMessage(),
+        true,
+        e);
     }
   }
 
@@ -317,57 +325,70 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     try {
       session.getStream().setChatRead();
     } catch (Exception e) {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "Can not read messages");
-      errorBody.putString("errorCode", FatalErrorType.UNKNOWN.name());
-      errorBody.putString("errorType", "fatal");
-      promise.reject("Reading messages failed", e, errorBody);
+      handleError(promise,
+        FatalErrorType.UNKNOWN.name(),
+        e.getLocalizedMessage(),
+        false,
+        e);
     }
   }
 
-
   @ReactMethod
   public void rateOperator(int rate, final Promise promise) {
-    Operator operator = session.getStream().getCurrentOperator();
-    if (operator != null) {
-      session.getStream().rateOperator(operator.getId(), rate, new MessageStream.RateOperatorCallback() {
-        @Override
-        public void onSuccess() {
-          promise.resolve(Arguments.createMap());
-        }
+    try {
+      Operator operator = session.getStream().getCurrentOperator();
+      if (operator != null) {
+        session.getStream().rateOperator(operator.getId(), rate, new MessageStream.RateOperatorCallback() {
+          @Override
+          public void onSuccess() {
+            promise.resolve(Arguments.createMap());
+          }
 
-        @Override
-        public void onFailure(@NonNull WebimError<RateOperatorError> rateOperatorError) {
-          WritableMap errorBody = Arguments.createMap();
-          errorBody.putString("message", rateOperatorError.getErrorString());
-          errorBody.putString("errorCode", rateOperatorError.getErrorType().name());
-          errorBody.putString("errorType", "fatal");
-          promise.reject("Operator rate on failure", errorBody);
-        }
-      });
-    } else {
-      WritableMap errorBody = Arguments.createMap();
-      errorBody.putString("message", "no operator");
-      errorBody.putString("errorCode", MessageStream.RateOperatorCallback.RateOperatorError.OPERATOR_NOT_IN_CHAT.name());
-      errorBody.putString("errorType", "common");
-      promise.reject("Operator rate on failed", errorBody);
+          @Override
+          public void onFailure(@NonNull WebimError<RateOperatorError> rateOperatorError) {
+            handleError(promise,
+              rateOperatorError.getErrorType().name(),
+              rateOperatorError.getErrorString(),
+              false,
+              null);
+          }
+        });
+      } else {
+        handleError(promise,
+          MessageStream.RateOperatorCallback.RateOperatorError.OPERATOR_NOT_IN_CHAT.name(),
+          "Current operator is not present",
+          false,
+          null);
+      }
+    } catch (Exception e) {
+      handleError(promise,
+        FatalErrorType.UNKNOWN.name(),
+        e.getLocalizedMessage(),
+        true,
+        e);
     }
   }
 
   @ReactMethod
   public void tryAttachFile(Callback failureCb, Callback successCb) {
-    fileCbFailure = failureCb;
-    fileCbSuccess = successCb;
-    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-    intent.setType("*/*");
-    intent.addCategory(Intent.CATEGORY_OPENABLE);
-    Activity activity = reactContext.getCurrentActivity();
-    if (activity != null) {
-      activity.startActivityForResult(Intent.createChooser(intent, "Выбор файла"), FILE_SELECT_CODE);
-    } else {
-      failureCb.invoke("pick error");
-      fileCbFailure = null;
-      fileCbSuccess = null;
+    try {
+      fileCbFailure = failureCb;
+      fileCbSuccess = successCb;
+      Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+      intent.setType("*/*");
+      intent.addCategory(Intent.CATEGORY_OPENABLE);
+      Activity activity = reactContext.getCurrentActivity();
+      if (activity != null) {
+        activity.startActivityForResult(Intent.createChooser(intent, "Select a file"), FILE_SELECT_CODE);
+      } else {
+        WritableMap errorBody = getErrorMap("SELECT_FILE_FAILED", "File selection failed", true);
+        failureCb.invoke(errorBody);
+        fileCbFailure = null;
+        fileCbSuccess = null;
+      }
+    } catch (Exception e) {
+      WritableMap errorBody = getErrorMap("SELECT_FILE_FAILED", e.getLocalizedMessage(), true);
+      fileCbFailure.invoke(errorBody);
     }
   }
 
@@ -377,7 +398,10 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     try {
       Activity activity = getContext().getCurrentActivity();
       if (activity == null) {
-        failureCb.invoke("");
+        WritableMap errorBody = getErrorMap("SESSION_NULL",
+          "File selection failed as session is destroyed",
+          true);
+        failureCb.invoke(errorBody);
         return;
       }
       InputStream inp = activity.getContentResolver().openInputStream(Uri.parse(uri));
@@ -389,7 +413,10 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       if (file != null) {
         file.delete();
       }
-      failureCb.invoke(getSimpleMap("message", "unknown"));
+      WritableMap errorBody = getErrorMap(MessageStream.SendFileCallback.SendFileError.UNKNOWN.name(),
+        String.format(Locale.ENGLISH, "File selection failed. Details: %s", e.getLocalizedMessage()),
+        true);
+      failureCb.invoke(errorBody);
       return;
     }
     if (file != null && name != null) {
@@ -397,6 +424,11 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       session.getStream().sendFile(fileToUpload, name, mime, new MessageStream.SendFileCallback() {
         @Override
         public void onProgress(@NonNull Message.Id id, long sentBytes) {
+          WritableMap result = Arguments.createMap();
+          result.putString("id", id.toString());
+          result.putString("bytes", Long.toString(sentBytes));
+          result.putString("fullSize", Long.toString(fileToUpload.getTotalSpace()));
+          emitDeviceEvent("fileUploading", result);
         }
 
         @Override
@@ -409,22 +441,46 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
         public void onFailure(@NonNull Message.Id id,
                               @NonNull WebimError<SendFileError> error) {
           fileToUpload.delete();
-          String msg;
-          switch (error.getErrorType()) {
-            case FILE_TYPE_NOT_ALLOWED:
-              msg = "type not allowed";
-              break;
-            case FILE_SIZE_EXCEEDED:
-              msg = "file size exceeded";
-              break;
-            default:
-              msg = "unknown";
-          }
-          failureCb.invoke(getSimpleMap("message", msg));
+          WritableMap errorBody = getErrorMap(error.getErrorType().name(),
+            error.getErrorString(),
+            true);
+          failureCb.invoke(errorBody);
         }
       });
     } else {
-      failureCb.invoke(getSimpleMap("message", "no file"));
+      WritableMap errorBody = getErrorMap(MessageStream.SendFileCallback.SendFileError.FILE_NOT_FOUND.name(),
+        "File is not provided",
+        true);
+      failureCb.invoke(errorBody);
+    }
+  }
+
+  @ReactMethod
+  public void getCurrentOperator(Promise promise) {
+    try {
+      Operator operator = session.getStream().getCurrentOperator();
+      if(operator != null) {
+        WritableMap operatorJson = Arguments.createMap();
+        operatorJson.putString("id", operator.getId().toString());
+        operatorJson.putString("name", operator.getName());
+        operatorJson.putString("title", operator.getTitle());
+        operatorJson.putString("info", operator.getInfo());
+        operatorJson.putString("avatar", operator.getAvatarUrl());
+
+        promise.resolve(operatorJson);
+      } else {
+        handleError(promise,
+          MessageStream.RateOperatorCallback.RateOperatorError.OPERATOR_NOT_IN_CHAT.name(),
+          "There is no operator right now",
+          false,
+          null);
+      }
+    } catch (Exception e) {
+      handleError(promise,
+        FatalErrorType.UNKNOWN.name(),
+        "Impossible to get current operator",
+        false,
+        e);
     }
   }
 
@@ -454,20 +510,15 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   @Override
   public void onNotFatalError(@NonNull WebimError<NotFatalErrorType> error) {
-    WritableMap errorBody = Arguments.createMap();
-    errorBody.putString("message", error.getErrorString());
-    errorBody.putString("errorCode", error.getErrorType().name());
-    errorBody.putString("errorType", "common");
-    emitDeviceEvent("error", errorBody);
+    emitDeviceEvent("error",
+      getErrorMap(error.getErrorType().toString(), error.getErrorString(), false));
   }
 
   @Override
   public void onError(@NonNull WebimError<FatalErrorType> error) {
-    WritableMap errorBody = Arguments.createMap();
-    errorBody.putString("message", error.getErrorString());
-    errorBody.putString("errorCode", error.getErrorType().name());
-    errorBody.putString("errorType", "fatal");
-    emitDeviceEvent("error", errorBody);
+    emitDeviceEvent(
+      "error",
+      getErrorMap(error.getErrorType().toString(), error.getErrorString(), true));
   }
 
   @Override
@@ -483,8 +534,31 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     emitDeviceEvent("onlineState", map);
   }
 
+  @Override
+  public void onUnreadByVisitorMessageCountChanged(int newMessageCount) {
+    // We don't use internal method "emitEvent" as we need to pass just a number
+    reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("unreadCount", newMessageCount);
+  }
+
+  @Override
+  public void onOperatorTypingStateChanged(boolean isTyping) {
+    final WritableMap eventBody = Arguments.createMap();
+    eventBody.putBoolean("isTyping", isTyping);
+    emitDeviceEvent("typing", eventBody);
+  }
+
   private static void emitDeviceEvent(String eventName, @Nullable WritableMap eventData) {
     reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName, eventData);
+  }
+
+  private static void handleError(final Promise promise, String errorCode, String message, boolean isFatal, @Nullable Exception e) {
+    WritableMap errorBody = getErrorMap(errorCode, message, isFatal);
+
+    if (e != null) {
+      promise.reject(errorCode, message, e, errorBody);
+    } else {
+      promise.reject(errorCode, message, errorBody);
+    }
   }
 
   private WritableMap messageToJson(Message msg) {
@@ -521,7 +595,6 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
     Message.Quote quote = msg.getQuote();
     if (quote != null) {
-
       WritableMap _att = Arguments.createMap();
       _att.putString("authorId", quote.getAuthorId());
       _att.putString("senderName", quote.getSenderName());
@@ -530,7 +603,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       _att.putString("messageType", quote.getMessageType().name());
       _att.putString("state", quote.getState().name());
       _att.putString("timestamp", String.valueOf(quote.getMessageTimestamp()));
-      if(quote.getMessageAttachment() != null) {
+      if (quote.getMessageAttachment() != null) {
         _att.putMap("attachment", mapAttachmentToJson(quote.getMessageAttachment()));
       }
 
@@ -551,10 +624,18 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     return _att;
   }
 
-  private WritableMap getSimpleMap(String key, String value) {
+  private static WritableMap getSimpleMap(String key, String value) {
     WritableMap map = Arguments.createMap();
     map.putString(key, value);
     return map;
+  }
+
+  private static WritableMap getErrorMap(String errorCode, String message, Boolean isFatal) {
+    WritableMap errorBody = getSimpleMap("message", message);
+    errorBody.putString("errorCode", errorCode);
+    errorBody.putString("errorType", isFatal ? "fatal" : "common");
+
+    return errorBody;
   }
 
   private void clearAttachCallbacks() {
@@ -591,18 +672,5 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       WritableArray response = messagesToJson(messages);
       promise.resolve(response);
     };
-  }
-
-  @Override
-  public void onUnreadByVisitorMessageCountChanged(int newMessageCount) {
-    // We don't use internal method "emitEvent" as we need to pass just a number
-    reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("unreadCount", newMessageCount);
-  }
-
-  @Override
-  public void onOperatorTypingStateChanged(boolean isTyping) {
-    final WritableMap eventBody = Arguments.createMap();
-    eventBody.putBoolean("isTyping", isTyping);
-    emitDeviceEvent("typing", eventBody);
   }
 }

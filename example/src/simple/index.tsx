@@ -14,6 +14,7 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
   } = props;
   const [result, setResult] = React.useState<WebimMessage[]>([]);
   const [isInit, setInit] = React.useState<boolean>(false);
+  const [isPaused, setPaused] = React.useState<boolean>(true);
   const [fatalError, setFatalError] = React.useState<string>('');
   const [notFatalError, setNotFatalError] = React.useState<string>('');
 
@@ -72,15 +73,33 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
       await RNWebim.addUnreadCountListener((args) => {
         console.log('UnreadCountListener listener: ', args);
       });
-      console.log('Before resume: ');
-      await RNWebim.resumeSession();
       console.log('[Chat][Init] initialized with params: ', sessionsParams);
       setInit(true);
     } catch (err: unknown) {
-      console.log('[Chat][Init] error: ', JSON.stringify(err));
+      console.log('[Chat][Init] error: ', JSON.stringify(err), '\n', err);
       handleError(err);
     }
   }, [acc, PRIVATE_KEY, CHAT_SERVICE_ACCOUNT, errorListener, handleError]);
+
+  const onResume = useCallback(async () => {
+    try {
+      await RNWebim.resumeSession();
+      setPaused(false);
+    } catch (err) {
+      console.log('[Chat][Resume] error: ', JSON.stringify(err), '\n', err);
+      handleError(err);
+    }
+  }, [handleError]);
+
+  const onPause = useCallback(async () => {
+    try {
+      await RNWebim.pauseSession();
+      setPaused(true);
+    } catch (err) {
+      console.log('[Chat][Pause] error: ', JSON.stringify(err), '\n', err);
+      handleError(err);
+    }
+  }, [handleError]);
 
   const onGetAllMessages = useCallback(async () => {
     try {
@@ -89,7 +108,12 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
 
       setResult(messageResult);
     } catch (err: unknown) {
-      console.log('[Chat][All Messages] error: ', JSON.stringify(err));
+      console.log(
+        '[Chat][All Messages] error: ',
+        JSON.stringify(err),
+        '\n',
+        err
+      );
       handleError(err);
     }
   }, [handleError]);
@@ -113,7 +137,7 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
     try {
       await RNWebim.send('Test example message');
     } catch (e) {
-      console.log('[Chat][Send] error: ', JSON.stringify(e));
+      console.log('[Chat][Send] error: ', JSON.stringify(e), '\n', e);
       handleError(e);
     }
   }, [handleError]);
@@ -123,7 +147,7 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
       try {
         await RNWebim.rateOperator(rate);
       } catch (e) {
-        console.log('[Chat][Rate] error: ', JSON.stringify(e));
+        console.log('[Chat][Rate] error: ', JSON.stringify(e), '\n', e);
         handleError(e);
       }
     },
@@ -170,10 +194,14 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
         </ScrollView>
       </View>
 
-      <Text>{`Chat is init: ${isInit}`}</Text>
+      <Text>{`Chat is init: ${isInit} (Paused: ${isPaused})`}</Text>
       <View style={styles.buttonsContainer}>
         <Button title={'Init session'} onPress={intSession} />
         <Button title={'Close session'} onPress={onCloseSession} />
+      </View>
+      <View style={styles.buttonsContainer}>
+        <Button title={'Resume session'} onPress={onResume} />
+        <Button title={'Pause session'} onPress={onPause} />
       </View>
       <View style={styles.buttonsContainer}>
         <Button title={'Read messages'} onPress={onGetAllMessages} />
@@ -214,6 +242,7 @@ const styles = StyleSheet.create({
     height: 48,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 2,
   },
 
   errorContainer: {
