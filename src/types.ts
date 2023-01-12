@@ -21,6 +21,7 @@ export enum WebimEvents {
   STATE = 'onlineState',
   UNREAD_COUNTER = 'unreadCount',
   TYPING = 'typing',
+  FILE_UPLOADING_PROGRESS = 'fileUploading',
 }
 
 export interface WebimAttachment {
@@ -76,6 +77,14 @@ export type Quote = {
   attachment?: WebimAttachment;
 };
 
+export type Operator = {
+  id: string;
+  name: string;
+  avatar?: string;
+  title: string;
+  info: string;
+};
+
 export type WebimNativeError = {
   message: string;
   errorCode: string;
@@ -94,6 +103,11 @@ export type ErrorListener = (error: WebimNativeError) => void;
 export type StateListener = (state: { old: string; new: string }) => void;
 export type TypingListener = (state: { isTyping: boolean }) => void;
 export type UnreadCountListener = (state: number) => void;
+export type FileUploadingListener = (progress: {
+  id: string;
+  bytes: number;
+  fullSize: number;
+}) => void;
 
 export type WebimEventListener =
   | NewMessageListener
@@ -104,4 +118,5 @@ export type WebimEventListener =
   | ErrorListener
   | StateListener
   | TypingListener
-  | UnreadCountListener;
+  | UnreadCountListener
+  | FileUploadingListener;

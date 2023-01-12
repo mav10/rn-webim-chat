@@ -18,9 +18,11 @@ import type {
   WebimMessage,
   TypingListener,
   UnreadCountListener,
+  FileUploadingListener,
+  Operator,
 } from './types';
 import { WebimEvents } from './types';
-import { WebimSubscription } from './utils';
+import { webimErrorHandler, WebimSubscription } from './utils';
 
 const LINKING_ERROR =
   `The package 'rn-webim-chat' doesn't seem to be linked. Make sure: \n\n` +
@@ -46,9 +48,7 @@ const DEFAULT_MESSAGES_LIMIT = 100;
 export class RNWebim {
   static initSession(params: SessionBuilderParams): Promise<void> {
     return RnWebimChat.initSession(params)
-      .catch((err: WebimNativeError) => {
-        throw err;
-      })
+      .catch(webimErrorHandler)
       .then(() => {
         return;
       });
@@ -56,9 +56,7 @@ export class RNWebim {
 
   static resumeSession(): Promise<void> {
     return RnWebimChat.resumeSession()
-      .catch((err: WebimNativeError) => {
-        throw err;
-      })
+      .catch(webimErrorHandler)
       .then(() => {
         return;
       });
@@ -70,9 +68,7 @@ export class RNWebim {
 
   static destroySession(clearData: boolean = false) {
     return RnWebimChat.destroySession(clearData)
-      .catch((err: WebimNativeError) => {
-        throw err;
-      })
+      .catch(webimErrorHandler)
       .then(() => {
         return;
       });
@@ -82,9 +78,7 @@ export class RNWebim {
     limit: number = DEFAULT_MESSAGES_LIMIT
   ): Promise<WebimMessage[]> {
     return RnWebimChat.getLastMessages(limit)
-      .catch((err: WebimNativeError) => {
-        throw err;
-      })
+      .catch(webimErrorHandler)
       .then((messages: WebimMessage[]) => {
         return messages || [];
       });
@@ -94,9 +88,7 @@ export class RNWebim {
     limit: number = DEFAULT_MESSAGES_LIMIT
   ): Promise<WebimMessage[]> {
     return RnWebimChat.getNextMessages(limit)
-      .catch((err: WebimNativeError) => {
-        throw err;
-      })
+      .catch(webimErrorHandler)
       .then((messages: WebimMessage[]) => {
         return messages || [];
       });
@@ -104,9 +96,7 @@ export class RNWebim {
 
   static getAllMessages(): Promise<WebimMessage[]> {
     return RnWebimChat.getAllMessages()
-      .catch((err: WebimNativeError) => {
-        throw err;
-      })
+      .catch(webimErrorHandler)
       .then((messages: WebimMessage[]) => {
         return messages || [];
       });
@@ -114,9 +104,7 @@ export class RNWebim {
 
   static send(message: string): Promise<string> {
     return RnWebimChat.send(message)
-      .catch((err: WebimNativeError) => {
-        throw err;
-      })
+      .catch(webimErrorHandler)
       .then((id: string) => {
         return id;
       });
@@ -124,9 +112,7 @@ export class RNWebim {
 
   static readMessages(): Promise<void> {
     return RnWebimChat.readMessages()
-      .catch((err: WebimNativeError) => {
-        throw err;
-      })
+      .catch(webimErrorHandler)
       .then(() => {
         return;
       });
@@ -134,11 +120,17 @@ export class RNWebim {
 
   static rateOperator(rate: number) {
     return RnWebimChat.rateOperator(rate)
-      .catch((err: WebimNativeError) => {
-        throw err;
-      })
+      .catch(webimErrorHandler)
       .then(() => {
         return;
+      });
+  }
+
+  static getCurrentOperator(): Promise<Operator> {
+    return RnWebimChat.getCurrentOperator()
+      .catch(webimErrorHandler)
+      .then((result: Operator) => {
+        return result;
       });
   }
 
@@ -157,7 +149,7 @@ export class RNWebim {
             await RNWebim.sendFile(uri, name, mime, extension);
             resolve;
           } catch (e: any) {
-            reject(e);
+            webimErrorHandler(e);
           }
         }
       );
@@ -172,6 +164,16 @@ export class RNWebim {
 
   public static addTypingListener(listener: TypingListener): WebimSubscription {
     const subscription = emitter.addListener(WebimEvents.TYPING, listener);
+    return new WebimSubscription(() => RNWebim.removeListener(subscription));
+  }
+
+  public static addFileUploadingListener(
+    listener: FileUploadingListener
+  ): WebimSubscription {
+    const subscription = emitter.addListener(
+      WebimEvents.FILE_UPLOADING_PROGRESS,
+      listener
+    );
     return new WebimSubscription(() => RNWebim.removeListener(subscription));
   }
 

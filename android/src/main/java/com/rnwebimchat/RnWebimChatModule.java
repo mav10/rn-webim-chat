@@ -422,6 +422,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     if (file != null && name != null) {
       final File fileToUpload = file;
       session.getStream().sendFile(fileToUpload, name, mime, new MessageStream.SendFileCallback() {
+        // TODO: not implemented by SDK yet
         @Override
         public void onProgress(@NonNull Message.Id id, long sentBytes) {
           WritableMap result = Arguments.createMap();

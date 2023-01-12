@@ -64,7 +64,7 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
       await RNWebim.addSateListener((state) => {
         console.log('State listener: ', state);
       });
-      await RNWebim.addNewMessageListener((args) => {
+      await RNWebim.addNewMessageListener(async (args) => {
         console.log('Got message listener listener: ', args);
       });
       await RNWebim.addTypingListener((args) => {
@@ -72,6 +72,9 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
       });
       await RNWebim.addUnreadCountListener((args) => {
         console.log('UnreadCountListener listener: ', args);
+      });
+      await RNWebim.addFileUploadingListener((args) => {
+        console.log('File uploading listener: ', args);
       });
       console.log('[Chat][Init] initialized with params: ', sessionsParams);
       setInit(true);
