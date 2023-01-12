@@ -399,7 +399,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             "messageType": self.typeToString(messageType: quote.getMessageType()!),
             "state": self.quoteStateToString(state: quote.getState()),
             "timestamp": quote.getMessageTimestamp()!.timeIntervalSince1970 * 1000,
-            "attachement":  quote.getMessageAttachment() != nil ? self.attachmentToJson(attachment: quote.getMessageAttachment() as? MessageAttachment) : nil,
+            "attachment":  quote.getMessageAttachment() != nil ? self.attachmentToJson(attachment: quote.getMessageAttachment() as? MessageAttachment) : nil,
         ] as [String : Any?]
 
         return result;
