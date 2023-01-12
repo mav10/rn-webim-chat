@@ -7,19 +7,19 @@ import {
 import type {
   DialogClearedListener,
   ErrorListener,
-  WebimNativeError,
+  FileUploadingListener,
   NewMessageListener,
+  Operator,
   RemoveMessageListener,
   SessionBuilderParams,
   StateListener,
   TokenUpdatedListener,
+  TypingListener,
+  UnreadCountListener,
   UpdateMessageListener,
   WebimEventListener,
   WebimMessage,
-  TypingListener,
-  UnreadCountListener,
-  FileUploadingListener,
-  Operator,
+  WebimNativeError,
 } from './types';
 import { WebimEvents } from './types';
 import { webimErrorHandler, WebimSubscription } from './utils';
@@ -134,10 +134,10 @@ export class RNWebim {
       });
   }
 
-  static tryAttachFile() {
+  static tryAttachFile(): Promise<{ id: string }> {
     return new Promise((resolve, reject) => {
       RnWebimChat.tryAttachFile(
-        (error: WebimNativeError) => reject(error),
+        (error: WebimNativeError) => reject(webimErrorHandler(error, false)),
         async (file: {
           uri: string;
           name: string;
@@ -146,10 +146,15 @@ export class RNWebim {
         }) => {
           const { uri, name, mime, extension } = file;
           try {
-            await RNWebim.sendFile(uri, name, mime, extension);
-            resolve;
+            const result = (await RNWebim.sendFile(
+              uri,
+              name,
+              mime,
+              extension
+            )) as { id: string };
+            resolve(result);
           } catch (e: any) {
-            webimErrorHandler(e);
+            reject(webimErrorHandler(e, false));
           }
         }
       );

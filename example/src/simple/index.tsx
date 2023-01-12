@@ -1,6 +1,11 @@
 import * as React from 'react';
 import { useCallback } from 'react';
-import { isWebimError, RNWebim, WebimMessage } from 'rn-webim-chat';
+import {
+  isWebimError,
+  RNWebim,
+  WebimMessage,
+  WebimNativeError,
+} from 'rn-webim-chat';
 import { getHashForChatSign } from '../chat-utils';
 import * as AppConfig from '../../package.json';
 import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -159,18 +164,17 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
 
   const onSelectFiles = useCallback(async () => {
     try {
-      await RNWebim.tryAttachFile();
+      const fileResult = await RNWebim.tryAttachFile();
+      console.log('File result: ', fileResult);
     } catch (err: any) {
-      if (err !== 'canceled') {
-        console.log('[Chat][File] failed: ', err);
-        setNotFatalError(JSON.stringify(err));
+      const webimError = err as WebimNativeError;
+      if (webimError.errorType === 'common') {
+        setNotFatalError(
+          webimError.message + `(Code: ${webimError.errorCode})`
+        );
+      } else {
+        setFatalError(webimError.message + `(Code: ${webimError.errorCode})`);
       }
-      /*
-       process err.message:
-        - 'file size exceeded' - webim response
-        - 'type not allowed' - webim response
-        - 'canceled' - picker closed by user
-       */
     }
   }, []);
 
