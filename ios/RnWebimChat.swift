@@ -1,9 +1,10 @@
 import WebimClientLibrary
+import Foundation
 
 
 @objc(RnWebimChat)
-open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, SendFileCompletionHandler {
-
+open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, FatalErrorHandler, NotFatalErrorHandler, SendFileCompletionHandler {
+    
     var chatSession: WebimSession?
     var messageStream: MessageStream!
     var messageTracker: MessageTracker?
@@ -94,8 +95,34 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             }
             do {
                 chatSession = try sessionBuilder.build()
+                chatSession = nil
+            } catch let error as SessionBuilder.SessionBuilderError {
+                var errorCode = "UNKWNOWN"
+                switch error {
+                case .nilAccountName:
+                    errorCode = "NULL_ACCOUNT_NAME"
+                    break
+                case .nilLocation:
+                    errorCode = "NULL_LOCATION"
+                    break
+                case .invalidAuthentificatorParameters:
+                    errorCode = "INVALID_AUTHENTIFICATOR_PARAMETERS"
+                    break
+                case .invalidRemoteNotificationConfiguration:
+                    errorCode = "INVALID_REMOTE_NOTIFICATION_CONFIGURATION"
+                    break
+                case .invalidHex:
+                    errorCode = "INVALID_HEX"
+                    break
+                case .unknown:
+                    errorCode = "UNKNOWN"
+                    break
+                }
+                handleError(rejecter: reject, errorCode: errorCode, message: error.localizedDescription, isFatal: true)
+                return
             } catch {
-                reject("Init result failed", "Failure text", error)
+                handleError(rejecter: reject, errorCode: "NULL_SESSION", message: error.localizedDescription, isFatal: true)
+                return
             }
         }
 
@@ -106,8 +133,15 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             try messageStream.startChat();
             messageStream.set(operatorTypingListener: self)
             messageStream.set(unreadByVisitorMessageCountChangeListener: self)
-        } catch {
-            reject("Start chat failed", "Failure text", error)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+            return
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+            return
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: error.localizedDescription, isFatal: true)
+            return
         }
 
         resolve(nil)
@@ -118,8 +152,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         do {
             try chatSession?.resume()
             resolve(nil)
-        } catch {
-            reject("Resume result failed", "Failure text", nil)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: error.localizedDescription, isFatal: true)
         }
     }
 
@@ -127,8 +165,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     func pauseSession(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         do {
             try chatSession?.pause()
-        } catch {
-            reject("Pause result failed", "Failure text", nil)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: error.localizedDescription, isFatal: true)
         }
     }
 
@@ -138,8 +180,15 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             do {
                 try messageStream.closeChat()
                 messageStream = nil
-            } catch {
-                reject(error.localizedDescription,  "Error 2 text", error)
+            } catch AccessError.invalidSession {
+                handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Can not destroy. Session is destoyed", isFatal: true)
+                return
+            } catch AccessError.invalidThread {
+                handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Can not destroy. Session is not initialized in current thread", isFatal: true)
+                return
+            } catch let error {
+                handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Destroy session failed", isFatal: true)
+                return
             }
         }
 
@@ -150,8 +199,15 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
                 } else {
                     try chatSession?.destroy()
                 }
-            } catch {
-                reject(error.localizedDescription,  "Error 3 text", error)
+            } catch AccessError.invalidSession {
+                handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Can not destroy. Session is destoyed", isFatal: true)
+                return
+            } catch AccessError.invalidThread {
+                handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Can not destroy. Session is not initialized in current thread", isFatal: true)
+                return
+            } catch let error {
+                handleError(rejecter: reject, errorCode: "UNKNOWN", message: error.localizedDescription, isFatal: true)
+                return
             }
 
             chatSession = nil
@@ -176,8 +232,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
                 resolve(messages)
             })
             try messageStream?.setChatRead()
-        } catch {
-            reject(error.localizedDescription,  "Error 2 text", error)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not fetch all messages. Details: " + error.localizedDescription, isFatal: true)
         }
     }
 
@@ -192,8 +252,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
                 resolve(messages)
             })
-        } catch {
-            reject(error.localizedDescription,  "Error 2 text", error)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not fetch last messages. Details: " + error.localizedDescription, isFatal: true)
         }
     }
 
@@ -208,8 +272,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
                 resolve(messages)
             })
-        } catch {
-            reject(error.localizedDescription,  "Error 2 text", error)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not fetch next messages. Details: " + error.localizedDescription, isFatal: true)
         }
     }
 
@@ -219,8 +287,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             let _id = try messageStream?.send(message: message)
             try messageStream?.setChatRead()
             resolve(_id);
-        } catch {
-            reject(error.localizedDescription,  "Error 2 text", error)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not send a message. Details: " + error.localizedDescription, isFatal: true)
         }
     }
 
@@ -229,8 +301,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         do {
             try messageStream.setChatRead()
             resolve(nil)
-        } catch {
-            reject(error.localizedDescription,  "Error 2 text", error)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not mark messages as read. Details: " + error.localizedDescription, isFatal: true)
         }
     }
 
@@ -243,7 +319,29 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
                 try messageStream.rateOperatorWith(id: currentOperator?.getID(), byRating: rate.intValue, completionHandler: RateCompletionWrapper(resolve: resolve, reject: reject))
             }
         } catch {
-            reject(error.localizedDescription,  "Error 2 text", error)
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not rate an operator. Details: " + error.localizedDescription, isFatal: true)
+        }
+    }
+    
+    @objc(getCurrentOperator:withRejecter:)
+    func getCurrentOperator(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+        do {
+            let currentOperator = try messageStream.getCurrentOperator();
+            if (currentOperator != nil) {
+                let result = [
+                    "id": currentOperator?.getID(),
+                    "name": currentOperator?.getName(),
+                    "title": currentOperator?.getTitle(),
+                    "info": currentOperator?.getInfo(),
+                    "avatar": currentOperator?.getAvatarURL()?.absoluteString
+                ] as [String : Any?]
+                
+                resolve(result)
+            } else {
+                resolve(nil)
+            }
+        } catch {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not rate an operator. Details: " + error.localizedDescription, isFatal: true)
         }
     }
 
@@ -263,11 +361,6 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             self.resolveSendingAttachCallback = resolve
             self.rejectSendingAttachCallback = reject
             let imageData = try Data(contentsOf: URL(string: uri)!)
-//            if (extention == "jpg" || extention == "jpeg") {
-//                imageData = UIImageJPEGRepresentation (img, 1.0f);
-//            } else {
-//                imageData = UIImagePNGRepresentation(img);
-//            }
             _ = try messageStream.send(file: imageData, filename: name, mimeType: mime, completionHandler: self)
         } catch {
             reject([error])
@@ -312,6 +405,29 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
     public func changedUnreadByVisitorMessageCountTo(newValue: Int) {
         self.sendEvent(withName: "unreadCount", body: newValue)
+    }
+    
+    // Error Handling
+    public func on(error: WebimError) {
+        self.sendEvent(withName: "error", body: getErrorObject(errorCode: self.fatalErrorToString(error: error.getErrorType()),
+                                                               message: error.getErrorString(), isFatal: true))
+    }
+    
+    public func on(error: WebimNotFatalError) {
+        var errorCode = "UNKWNOWN";
+        switch error.getErrorType() {
+        case .noNetworkConnection:
+            errorCode = "NO_NETWORK_CONNECTION"
+            break
+        case .serverIsNotAvailable:
+            errorCode = "SOCKET_TIMEOUT_EXPIRED"
+            break
+        }
+        self.sendEvent(withName: "error", body: getErrorObject(errorCode: errorCode, message: error.getErrorString(), isFatal: false))
+    }
+    
+    public func connectionStateChanged(connected: Bool) {
+        self.sendEvent(withName: "error", body: getErrorObject(errorCode: connected ? "SERVER_CONNECTED" : "SERVER_DISCONNECTED", message: "Server connection state changed", isFatal: false))
     }
 
     // Mapping section
@@ -415,6 +531,36 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             "url": attachment?.getFileInfo().getURL()?.absoluteString
         ];
     }
+    
+    func fatalErrorToString(error: FatalErrorType) -> String {
+        switch error {
+        case .accountBlocked:
+            return "ACCOUNT_BLOCKED"
+        case .providedVisitorFieldsExpired:
+            return "PROVIDED_VISITOR_EXPIRED"
+        case .unknown:
+            return "UNKNOWN"
+        case .visitorBanned:
+            return "VISITOR_BANNED"
+        case .wrongProvidedVisitorHash:
+            return "WRONG_PROVIDED_VISITOR_HASH"
+        }
+    }
+    
+    func getErrorObject(errorCode: String, message: String, isFatal: Bool) -> [String: Any?] {
+        let result = [
+            "message": message,
+            "errorCode": errorCode,
+            "errorType": isFatal ? "fatal" : "common",
+        ] as [String : Any?]
+
+        return result;
+    }
+    
+    func handleError(rejecter: RCTPromiseRejectBlock, errorCode: String, message: String, isFatal: Bool) {
+        let errorBody = getErrorObject(errorCode: errorCode, message: message, isFatal: isFatal)
+        rejecter(errorCode, message, NSError.init(domain: "com.rn-webim-chat.provider", code: -1, userInfo: errorBody))
+    }
 }
 
 class RateCompletionWrapper : RateOperatorCompletionHandler {
@@ -432,7 +578,24 @@ class RateCompletionWrapper : RateOperatorCompletionHandler {
     }
 
     func onFailure(error: RateOperatorError) {
-        rejecter("Code 1", "Text 2", error)
+        var code = "UNKWNOWN"
+        switch error {
+        case .noChat:
+            code = "NO_CHAT"
+            break
+        case .noteIsTooLong:
+            code = "NOTE_IS_TOO_LONG"
+            break
+        case .wrongOperatorId:
+            code = "OPERATOR_NOT_INT_CHAT"
+            break
+        }
+        
+        rejecter(code, error.localizedDescription, NSError.init(domain: "com.rn-webim-chat.provider", code: -1, userInfo: [
+            "message": error.localizedDescription,
+            "errorCode": code,
+            "errorType": "common",
+        ]))
     }
 }
 

@@ -16,7 +16,6 @@ RCT_EXTERN_METHOD(initSession:(NSDictionary*)builderData
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
-
 RCT_EXTERN_METHOD(resumeSession:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
@@ -45,6 +44,7 @@ RCT_EXTERN_METHOD(readMessages:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(send:(NSString*)message
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
+
 
 RCT_EXTERN_METHOD(getCurrentOperator:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
