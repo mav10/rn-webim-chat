@@ -24,7 +24,8 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
     // SendFileCompletionHandler - fail callback
     public func onFailure(messageID: String, error: SendFileError) {
-        resolveSendingAttachCallback!([["code": "Code 1", "text": "Text 2" + messageID, "error": error.localizedDescription]])
+        rejectSendingAttachCallback!([getErrorObject(errorCode: self.sendErrorToString(error: error),
+                                                     message: error.localizedDescription, isFatal: true)])
     }
 
 
@@ -95,7 +96,6 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             }
             do {
                 chatSession = try sessionBuilder.build()
-                chatSession = nil
             } catch let error as SessionBuilder.SessionBuilderError {
                 var errorCode = "UNKWNOWN"
                 switch error {
@@ -127,6 +127,10 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         }
 
         do {
+            chatSession = nil
+            if(chatSession == nil) {
+                throw AccessError.invalidSession
+            }
             messageStream = chatSession!.getStream();
             try messageStream.setChatRead();
             try messageTracker = messageStream.newMessageTracker(messageListener: self)
@@ -313,6 +317,11 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     @objc(rateOperator:withResolver:withRejecter:)
     func rateOperator(rate: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
         do {
+            if(messageStream == nil) {
+                handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Can not rate an operator. As session is null.", isFatal: true)
+                return
+            }
+            
             let currentOperator = messageStream.getCurrentOperator();
             if (currentOperator != nil) {
 
@@ -325,23 +334,24 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     
     @objc(getCurrentOperator:withRejecter:)
     func getCurrentOperator(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
-        do {
-            let currentOperator = try messageStream.getCurrentOperator();
-            if (currentOperator != nil) {
-                let result = [
-                    "id": currentOperator?.getID(),
-                    "name": currentOperator?.getName(),
-                    "title": currentOperator?.getTitle(),
-                    "info": currentOperator?.getInfo(),
-                    "avatar": currentOperator?.getAvatarURL()?.absoluteString
-                ] as [String : Any?]
-                
-                resolve(result)
-            } else {
-                resolve(nil)
-            }
-        } catch {
-            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not rate an operator. Details: " + error.localizedDescription, isFatal: true)
+        if(messageStream == nil) {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Can not get an operator. As session is null.", isFatal: true)
+            return
+        }
+
+        let currentOperator = messageStream.getCurrentOperator();
+        if (currentOperator != nil) {
+            let result = [
+                "id": currentOperator?.getID(),
+                "name": currentOperator?.getName(),
+                "title": currentOperator?.getTitle(),
+                "info": currentOperator?.getInfo(),
+                "avatar": currentOperator?.getAvatarURL()?.absoluteString
+            ] as [String : Any?]
+            
+            resolve(result)
+        } else {
+            resolve(nil)
         }
     }
 
@@ -362,8 +372,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             self.rejectSendingAttachCallback = reject
             let imageData = try Data(contentsOf: URL(string: uri)!)
             _ = try messageStream.send(file: imageData, filename: name, mimeType: mime, completionHandler: self)
-        } catch {
-            reject([error])
+        } catch AccessError.invalidSession {
+            reject([getErrorObject(errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)])
+        } catch AccessError.invalidThread {
+            reject([getErrorObject(errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)])
+        } catch let error {
+            reject([getErrorObject(errorCode: "UNKNOWN", message: "Can not send a message. Details: " + error.localizedDescription, isFatal: true)])
         }
     }
 
@@ -547,6 +561,25 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         }
     }
     
+    func sendErrorToString(error: SendFileError) -> String {
+        switch error {
+        case .fileSizeExceeded:
+            return "FILE_SIZE_EXCEEDED"
+        case .unknown:
+            return "UNKNOWN"
+        case .fileSizeTooSmall:
+            return "FILE_SIZE_TOO_SMALL"
+        case .fileTypeNotAllowed:
+            return "FILE_TYPE_NOT_ALLOWED"
+        case .maxFilesCountPerChatExceeded:
+            return "MAX_FILES_COUNT_PER_CHAT_EXCEEDED"
+        case .uploadedFileNotFound:
+            return "UPLOADED_FILE_NOT_FOUND"
+        case .unauthorized:
+            return "UNAUTHORIZED"
+        }
+    }
+    
     func getErrorObject(errorCode: String, message: String, isFatal: Bool) -> [String: Any?] {
         let result = [
             "message": message,
@@ -596,24 +629,6 @@ class RateCompletionWrapper : RateOperatorCompletionHandler {
             "errorCode": code,
             "errorType": "common",
         ]))
-    }
-}
-
-class SendFilesCompletionWrapper : SendFileCompletionHandler {
-    let resolver: RCTResponseSenderBlock
-    let rejecter: RCTResponseSenderBlock
-
-    init(resolve: @escaping RCTResponseSenderBlock,  reject: @escaping RCTResponseSenderBlock) {
-        self.resolver = resolve
-        self.rejecter = reject
-    }
-
-    func onSuccess(messageID: String) {
-        resolver([["id": messageID]])
-    }
-
-    func onFailure(messageID: String, error: SendFileError) {
-        rejecter([["code": "Code 1", "text": "Text 2" + messageID, "error": error.localizedDescription]])
     }
 }
 

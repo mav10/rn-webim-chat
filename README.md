@@ -36,24 +36,23 @@ yarn add rn-webim-chat
 ```
 
 #### :iphone:iOS (_Extra steps_)
-- add to PodFile     `use_frameworks!`
 - add `WebimClientLibrary` to Podfile with specific version (_Wrapper was written for v3.37.4_)
 - pod install
 
 see [example Podfile](./example/ios/Podfile)
 
-**Note:** Flipper doesn't work with **use_frameworks** flag
-
-Since the official [WebimClientLibrary](https://github.com/webim/webim-client-sdk-ios) is written is Swift, you need to have Swift enabled in your iOS project. If you already have any .swift files, you are good to go. Otherwise create a new empty Swift source file in Xcode, and allow it to create the neccessary bridging header when prompted.
+Since the official [WebimClientLibrary](https://github.com/webim/webim-client-sdk-ios) is written is Swift, you need to have Swift enabled in your iOS project. If you already have any .swift files, you are good to go. Otherwise, create a new empty Swift source file in Xcode, and allow it to create the neccessary bridging header when prompted.
 
 ## Example
 In [example folder](./example) there is simple workflow how to:
  - Start and destroy session
+ - Resume and Pause session
  - Get and Send messages
+ - Rate operator
  - Handle errors
 
 How it looks like you can see here
-
+It is achieved with [simple UI](./example/src/simple) (just test common methods)
 <table align="Center">
   <tr>
     <td>Not init session</td>
@@ -78,17 +77,18 @@ How it looks like you can see here
  </table>
 
 ![](doc/chat.png)
+
+_Also there is another [example with chat UI](./example/src/withCustomUI) [`react-native-gifted-chat`](https://github.com/FaridSafi/react-native-gifted-chat)_
 ## Methods
 
 **Important:** All methods are promise based and can throw exceptions.
 List of error codes will be provided later as get COMMON for both platform.
-
 ### Init chat
 
  ```ts
 import { RNWebim } from 'rn-webim-chat';
 
-RNWebim.resumeSession(builderParams: SessionBuilderParams)
+await RNWebim.initSession(builderParams: SessionBuilderParams)
 ```
 **SessionBuilderParams:**
 - accountName (required) - name of your account in webim system
@@ -98,8 +98,32 @@ RNWebim.resumeSession(builderParams: SessionBuilderParams)
 - storeHistoryLocally - cache messages in local store
 - title - title for chat in webim web panel
 - providedAuthorizationToken - user token. Session will not start with wrong token. Read webim documentation
-- pushToken - FCM token is enough - but Aple pushes will come through APN, so you are not able to process them in app by default.
-- appVersion
+- pushToken - FCM token is enough - but Apple pushes will come through APN, so you are not able to process them in app by default.
+- appVersion - version of your Application
+- prechat - some additional fields to prechat
+
+### Resume session
+
+If you have already initialized a session you should **resume** it to consume and send messages, get actual information by listeners etc.
+
+**NOTE:** _After that execution operator on web chat will get message that user opens a chat._
+
+ ```ts
+import { RNWebim } from 'rn-webim-chat';
+
+await RNWebim.resumeSession()
+```
+
+### Pause session
+
+If you have already initialized a session you should **resume** it to consume and send messages, get actual information by listeners etc.
+After that execution operator on web chat will get message that user opens a chat.
+
+ ```ts
+import { RNWebim } from 'rn-webim-chat';
+
+await RNWebim.pauseSession()
+```
 
 
 ### Init events listeners
@@ -118,6 +142,7 @@ const listener2 = RNWebim.addListener(WebimEvents.NEW_MESSAGE, ({ msg }) => {
     // do something
 });
 ```
+
 Supported events (`WebimEvents`):
 - WebimEvents.NEW_MESSAGE;
 - WebimEvents.REMOVE_MESSAGE;
@@ -125,8 +150,14 @@ Supported events (`WebimEvents`):
 - WebimEvents.CLEAR_DIALOG;
 - WebimEvents.TOKEN_UPDATED;
 - WebimEvents.ERROR;
+- WebimEvents.STATE;
+- WebimEvents.UNREAD_COUNTER;
+- WebimEvents.TYPING;
+
+- ~~WebimEvents.FILE_UPLOADING_PROGRESS;~~
 
 ### Get messages
+As you called `getAllMessages` after that you should call `nextMessages` as reading "all messages" during the same session will get no result (native implementation uses holder and cursor by last loaded message)
 
 ```js
 const { messages } = await RNWebim.getLastMessages(limit);
@@ -137,60 +168,151 @@ const { messages } = await RNWebim.getAllMessages();
 ```
 
 **Message type**
-```ts
-{
+```typescript
+export type WebimMessage = {
   id: string;
+  serverSideId: string;
   avatar?: string;
   time: number;
-  type: 'OPERATOR' | 'VISITOR' | 'INFO';
+  type: MessageTypeAlias; // 'OPERATOR', 'VISITOR', 'INFO', 'ACTION_REQUEST', 'CONTACTS_REQUEST', 'FILE_FROM_OPERATOR', 'FILE_FROM_VISITOR', 'OPERATOR_BUSY', 'KEYBOARD', 'KEYBOARD_RESPONSE';
   text: string;
   name: string;
-  status: 'SENT';
+  status: 'SENT' | 'SENDING';
   read: boolean;
   canEdit: boolean;
   carReply: boolean;
-  quote?: any; // no typing yet
+  isEdited: boolean;
+  canReact: boolean;
+  canChangeReaction: boolean;
+  visitorReaction?: string;
+  stickerId?: number;
+  quote?: Quote;
   attachment?: WebimAttachment;
+  operatorId?: string;
+}
+
+```
+
+**Quote type**
+```typescript
+export type Quote = {
+  authorId?: string;
+  senderName: string;
+  messageId: string;
+  messageText: string;
+  messageType: MessageTypeAlias;
+  state: 'FILLED' | 'NOT_FOUND' | 'PENDING';
+  timestamp: Date | number;
+  attachment?: WebimAttachment;
+};
+```
+**Included attachment**
+```typescript
+export interface WebimAttachment {
+  contentType: string;
+  info: string;
+  name: string;
+  size: number;
+  url: string;
 }
 ```
 Note: method `getAllMessages` works strange on iOS, and sometimes returns empty array. We recommend to use `getLastMessages` instead
 
 ### Send text message
 
-```
-RNWebim.send(message);
+```typescript
+import RNWebim from 'rn-webim-chat';
+
+const messageId = await RNWebim.send(message);
 ```
 
-### Attach files
+### Read Messages (mark as read)
+You can manually mark all messages as read by calling this method.
+
+```typescript
+import RNWebim from 'rn-webim-chat';
+
+await RNWebim.readMessages();
+```
+
+## Attach files
 
 #### Use build in method for file attaching:
+In future will add possibility to use external library as `react-native-fs` and some other picker to import files via them.
+For now there are such methods
 
-```js
-try {
-  await RNWebim.tryAttachFile();
-} catch (err) {
-  /*
-   process err.message:
-    - 'file size exceeded' - webim response
-    - 'type not allowed' - webim response
-    - 'canceled' - picker closed by user
-   */
-}
+### Attach file
+```typescript
+var result: AttachFileResult = await RNWebim.tryAttachAndSendFile();
+
+console.log('uri: ', result.uri)
+console.log('name: ', result.name)
+console.log('mime: ', result.mime)
+console.log('extension: ', result.extension)
 ```
 
-#### or attach files by yourself
 
-```js
+### Send file
+
+```typescript
+import RNWebim from 'rn-webim-chat';
+
 try {
   RNWebim.sendFile(uri, name, mime, extension)
+  console.log('Result: ', sendingResult.id)
 } catch (e) {
-  // can throw 'file size exceeded' and 'type not allowed' errors
+  // can throw such errors
+  'FILE_SIZE_EXCEEDED', 'FILE_SIZE_TOO_SMALL', 'FILE_TYPE_NOT_ALLOWED', 'MAX_FILES_COUNT_PER_CHAT_EXCEEDED', 'UPLOADED_FILE_NOT_FOUND', 'UNAUTHORIZED',
 }
+
+```
+
+
+### Attach and Send file
+
+```typescript
+const onSelectFiles = useCallback(async () => {
+  try {
+    const fileResult = await RNWebim.tryAttachAndSendFile();
+    console.log('File result: ', fileResult);
+  } catch (err: any) {
+    const webimError = err as WebimNativeError;
+    console.log('Chat][File] error: ', webimError);
+    if (webimError.errorType === 'common') {
+      setNotFatalError(
+        webimError.message + `(Code: ${webimError.errorCode})`
+      );
+    } else {
+      setFatalError(webimError.message + `(Code: ${webimError.errorCode})`);
+    }
+  }
+}, []);
 ```
 
 ### Rate current operator
+
 ```js
-RNWebim.rateOperator()
+RNWebim.rateOperator(rate: number)
+```
+ - `rate` (required) - is number from 1 to 5
+
+### Get current operator
+
+```typescript
+import RNWebim from 'rn-webim-chat';
+
+RNWebim.getCurrentOperator()
+```
+
+it returns such object
+```typescript
+export type Operator = {
+  id: string;
+  name: string;
+  avatar?: string;
+  title: string;
+  info: string;
+};
 ```
 
 ### Destroy session

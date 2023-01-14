@@ -164,7 +164,7 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
 
   const onSelectFiles = useCallback(async () => {
     try {
-      const fileResult = await RNWebim.tryAttachFile();
+      const fileResult = await RNWebim.tryAttachAndSendFile();
       console.log('File result: ', fileResult);
     } catch (err: any) {
       const webimError = err as WebimNativeError;

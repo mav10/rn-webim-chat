@@ -1,3 +1,6 @@
+import type { CustomWebimNativeError } from './webimNativeError';
+import type { WebimNativeErrorType } from './webimNativeError';
+
 export type SessionBuilderParams = {
   accountName: string;
   location: string;
@@ -44,7 +47,7 @@ type MessageTypeAlias =
   | 'KEYBOARD'
   | 'KEYBOARD_RESPONSE';
 
-export interface WebimMessage {
+export type WebimMessage = {
   id: string;
   serverSideId: string;
   avatar?: string;
@@ -64,7 +67,7 @@ export interface WebimMessage {
   quote?: Quote;
   attachment?: WebimAttachment;
   operatorId?: string;
-}
+};
 
 export type Quote = {
   authorId?: string;
@@ -85,9 +88,16 @@ export type Operator = {
   info: string;
 };
 
+export type AttachFileResult = {
+  uri: string;
+  name: string;
+  mime: string;
+  extension: string;
+};
+
 export type WebimNativeError = {
   message: string;
-  errorCode: string;
+  errorCode: WebimNativeErrorType | CustomWebimNativeError;
   errorType: 'fatal' | 'common';
 };
 

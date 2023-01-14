@@ -5,6 +5,7 @@ import {
   Platform,
 } from 'react-native';
 import type {
+  AttachFileResult,
   DialogClearedListener,
   ErrorListener,
   FileUploadingListener,
@@ -134,24 +135,41 @@ export class RNWebim {
       });
   }
 
-  static tryAttachFile(): Promise<{ id: string }> {
+  static tryAttachFile(): Promise<AttachFileResult> {
     return new Promise((resolve, reject) => {
       RnWebimChat.tryAttachFile(
         (error: WebimNativeError) => reject(webimErrorHandler(error, false)),
-        async (file: {
-          uri: string;
-          name: string;
-          mime: string;
-          extension: string;
-        }) => {
+        (result: AttachFileResult) => resolve(result)
+      );
+    });
+  }
+
+  static sendFile(
+    uri: string,
+    name: string,
+    mime: string,
+    extension: string
+  ): Promise<{ id: string }> {
+    return new Promise((resolve, reject) =>
+      RnWebimChat.sendFile(
+        uri,
+        name,
+        mime,
+        extension,
+        (error: WebimNativeError) => reject(webimErrorHandler(error, false)),
+        (result: { id: string }) => resolve(result)
+      )
+    );
+  }
+
+  static tryAttachAndSendFile(): Promise<{ id: string }> {
+    return new Promise((resolve, reject) => {
+      RnWebimChat.tryAttachFile(
+        (error: WebimNativeError) => reject(webimErrorHandler(error, false)),
+        async (file: AttachFileResult) => {
           const { uri, name, mime, extension } = file;
           try {
-            const result = (await RNWebim.sendFile(
-              uri,
-              name,
-              mime,
-              extension
-            )) as { id: string };
+            const result = await RNWebim.sendFile(uri, name, mime, extension);
             resolve(result);
           } catch (e: any) {
             reject(webimErrorHandler(e, false));
@@ -159,12 +177,6 @@ export class RNWebim {
         }
       );
     });
-  }
-
-  static sendFile(uri: string, name: string, mime: string, extension: string) {
-    return new Promise((resolve, reject) =>
-      RnWebimChat.sendFile(uri, name, mime, extension, reject, resolve)
-    );
   }
 
   public static addTypingListener(listener: TypingListener): WebimSubscription {
@@ -268,4 +280,5 @@ export class RNWebim {
 
 export * from './types';
 export * from './utils';
+export * from './webimNativeError';
 export default RNWebim;
