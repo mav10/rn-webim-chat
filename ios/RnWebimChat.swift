@@ -127,7 +127,6 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         }
 
         do {
-            chatSession = nil
             if(chatSession == nil) {
                 throw AccessError.invalidSession
             }
