@@ -5,20 +5,25 @@ import {
   Platform,
 } from 'react-native';
 import type {
+  AttachFileResult,
   DialogClearedListener,
   ErrorListener,
-  WebimNativeError,
+  FileUploadingListener,
   NewMessageListener,
+  Operator,
   RemoveMessageListener,
   SessionBuilderParams,
   StateListener,
   TokenUpdatedListener,
+  TypingListener,
+  UnreadCountListener,
   UpdateMessageListener,
   WebimEventListener,
   WebimMessage,
+  WebimNativeError,
 } from './types';
 import { WebimEvents } from './types';
-import { WebimSubscription } from './utils';
+import { webimErrorHandler, WebimSubscription } from './utils';
 
 const LINKING_ERROR =
   `The package 'rn-webim-chat' doesn't seem to be linked. Make sure: \n\n` +
@@ -42,105 +47,161 @@ const emitter = new NativeEventEmitter(RnWebimChat);
 const DEFAULT_MESSAGES_LIMIT = 100;
 
 export class RNWebim {
-  static resumeSession(params: SessionBuilderParams): Promise<void> {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.resumeSession(
-        params,
-        (error: WebimNativeError) => reject(error),
-        () => resolve()
-      );
-    });
+  static initSession(params: SessionBuilderParams): Promise<void> {
+    return RnWebimChat.initSession(params)
+      .catch(webimErrorHandler)
+      .then(() => {
+        return;
+      });
+  }
+
+  static resumeSession(): Promise<void> {
+    return RnWebimChat.resumeSession()
+      .catch(webimErrorHandler)
+      .then(() => {
+        return;
+      });
+  }
+
+  static pauseSession(): Promise<void> {
+    return RnWebimChat.pauseSession();
   }
 
   static destroySession(clearData: boolean = false) {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.destroySession(
-        clearData,
-        (error: WebimNativeError) => reject(error),
-        resolve
-      );
-    });
+    return RnWebimChat.destroySession(clearData)
+      .catch(webimErrorHandler)
+      .then(() => {
+        return;
+      });
   }
 
   static getLastMessages(
     limit: number = DEFAULT_MESSAGES_LIMIT
-  ): Promise<{ messages: WebimMessage[] }> {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.getLastMessages(
-        limit,
-        (error: WebimNativeError) => reject(error),
-        (messages: { messages: WebimMessage[] }) => resolve(messages)
-      );
-    });
+  ): Promise<WebimMessage[]> {
+    return RnWebimChat.getLastMessages(limit)
+      .catch(webimErrorHandler)
+      .then((messages: WebimMessage[]) => {
+        return messages || [];
+      });
   }
 
   static getNextMessages(
     limit: number = DEFAULT_MESSAGES_LIMIT
-  ): Promise<{ messages: WebimMessage[] }> {
+  ): Promise<WebimMessage[]> {
+    return RnWebimChat.getNextMessages(limit)
+      .catch(webimErrorHandler)
+      .then((messages: WebimMessage[]) => {
+        return messages || [];
+      });
+  }
+
+  static getAllMessages(): Promise<WebimMessage[]> {
+    return RnWebimChat.getAllMessages()
+      .catch(webimErrorHandler)
+      .then((messages: WebimMessage[]) => {
+        return messages || [];
+      });
+  }
+
+  static send(message: string): Promise<string> {
+    return RnWebimChat.send(message)
+      .catch(webimErrorHandler)
+      .then((id: string) => {
+        return id;
+      });
+  }
+
+  static readMessages(): Promise<void> {
+    return RnWebimChat.readMessages()
+      .catch(webimErrorHandler)
+      .then(() => {
+        return;
+      });
+  }
+
+  static rateOperator(rate: number) {
+    return RnWebimChat.rateOperator(rate)
+      .catch(webimErrorHandler)
+      .then(() => {
+        return;
+      });
+  }
+
+  static getCurrentOperator(): Promise<Operator> {
+    return RnWebimChat.getCurrentOperator()
+      .catch(webimErrorHandler)
+      .then((result: Operator) => {
+        return result;
+      });
+  }
+
+  static tryAttachFile(): Promise<AttachFileResult> {
     return new Promise((resolve, reject) => {
-      RnWebimChat.getNextMessages(
-        limit,
-        (error: WebimNativeError) => reject(error),
-        (messages: { messages: WebimMessage[] }) => resolve(messages)
+      RnWebimChat.tryAttachFile(
+        (error: WebimNativeError) => reject(webimErrorHandler(error, false)),
+        (result: AttachFileResult) => resolve(result)
       );
     });
   }
 
-  static getAllMessages(): Promise<{ messages: WebimMessage[] }> {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.getAllMessages(
-        (error: WebimNativeError) => reject(error),
-        (messages: { messages: WebimMessage[] }) => resolve(messages)
-      );
-    });
-  }
-
-  static send(message: string) {
+  static sendFile(
+    uri: string,
+    name: string,
+    mime: string,
+    extension: string
+  ): Promise<{ id: string }> {
     return new Promise((resolve, reject) =>
-      RnWebimChat.send(
-        message,
-        (error: WebimNativeError) => reject(error),
-        (id: string) => resolve(id)
+      RnWebimChat.sendFile(
+        uri,
+        name,
+        mime,
+        extension,
+        (error: WebimNativeError) => reject(webimErrorHandler(error, false)),
+        (result: { id: string }) => resolve(result)
       )
     );
   }
 
-  static rateOperator(rate: number) {
-    return new Promise((resolve, reject) => {
-      RnWebimChat.rateOperator(
-        rate,
-        (error: WebimNativeError) => reject(error),
-        resolve
-      );
-    });
-  }
-
-  static tryAttachFile() {
+  static tryAttachAndSendFile(): Promise<{ id: string }> {
     return new Promise((resolve, reject) => {
       RnWebimChat.tryAttachFile(
-        (error: WebimNativeError) => reject(error),
-        async (file: {
-          uri: string;
-          name: string;
-          mime: string;
-          extension: string;
-        }) => {
+        (error: WebimNativeError) => reject(webimErrorHandler(error, false)),
+        async (file: AttachFileResult) => {
           const { uri, name, mime, extension } = file;
           try {
-            await RNWebim.sendFile(uri, name, mime, extension);
-            resolve;
+            const result = await RNWebim.sendFile(uri, name, mime, extension);
+            resolve(result);
           } catch (e: any) {
-            reject(e);
+            reject(webimErrorHandler(e, false));
           }
         }
       );
     });
   }
 
-  static sendFile(uri: string, name: string, mime: string, extension: string) {
-    return new Promise((resolve, reject) =>
-      RnWebimChat.sendFile(uri, name, mime, extension, reject, resolve)
+  public static addTypingListener(listener: TypingListener): WebimSubscription {
+    const subscription = emitter.addListener(WebimEvents.TYPING, listener);
+    return new WebimSubscription(() => RNWebim.removeListener(subscription));
+  }
+
+  public static addFileUploadingListener(
+    listener: FileUploadingListener
+  ): WebimSubscription {
+    const subscription = emitter.addListener(
+      WebimEvents.FILE_UPLOADING_PROGRESS,
+      listener
     );
+    return new WebimSubscription(() => RNWebim.removeListener(subscription));
+  }
+
+  public static addUnreadCountListener(
+    listener: UnreadCountListener
+  ): WebimSubscription {
+    const subscription = emitter.addListener(
+      WebimEvents.UNREAD_COUNTER,
+      listener
+    );
+    return new WebimSubscription(() => RNWebim.removeListener(subscription));
   }
 
   public static addNewMessageListener(
@@ -219,4 +280,5 @@ export class RNWebim {
 
 export * from './types';
 export * from './utils';
+export * from './webimNativeError';
 export default RNWebim;

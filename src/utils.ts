@@ -20,3 +20,32 @@ export class WebimSubscription {
     this.remove = remove;
   }
 }
+
+/**
+ * Parse error object, map it into {@link WebimNativeError} and decide should be thrown or not.
+ *
+ * @param {*} err - A caught error-object on Promise-level.
+ * @param {boolean} [throwable=true] - Optional parameter to define throw immediately
+ * or take error result and handle by your-self.
+ *
+ * @return {WebimNativeError} In case of not throwable.
+ *
+ * @throws {WebimNativeError}
+ */
+export function webimErrorHandler(
+  err: any,
+  throwable: boolean = true
+): WebimNativeError {
+  const errorBody: WebimNativeError = {
+    errorCode:
+      err?.userInfo?.errorCode || err.errorCode || err?.code || 'UNKNWON',
+    message: err?.userInfo?.message || err?.message || 'Unexpected error',
+    errorType: err?.userInfo?.errorType || err?.errorType || 'common',
+  };
+
+  if (throwable) {
+    throw errorBody;
+  }
+
+  return errorBody;
+}
