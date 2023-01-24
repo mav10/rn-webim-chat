@@ -1,13 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import type { ChatContainerBaseProps } from '../chat-container';
-import { GiftedChat, IChatMessage } from 'react-native-gifted-chat';
+import {
+  BubbleProps,
+  GiftedChat,
+  IChatMessage,
+} from 'react-native-gifted-chat';
 import RNWebim from 'rn-webim-chat';
 import { getHashForChatSign } from '../chat-utils';
 import * as AppConfig from '../../package.json';
-import { ActivityIndicator, Alert, StyleSheet, Text } from 'react-native';
-import { mapWebimToChatMessage } from './message-helper';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { mapWebimToChatMessage, WebimWithReplyMessage } from './message-helper';
 
-const MESSAGE_BATCH_SIZE = 5;
+const MESSAGE_BATCH_SIZE = 20;
 
 export const CustomChat = (props: ChatContainerBaseProps) => {
   const { chatAccount, userFields, privateKey } = props;
@@ -76,7 +80,9 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
   const loadNextMessages = useCallback(async () => {
     const webimMessages = await RNWebim.getNextMessages(MESSAGE_BATCH_SIZE);
     setMessages((prev) =>
-      GiftedChat.append(prev, webimMessages.map(mapWebimToChatMessage))
+      GiftedChat.append(prev, webimMessages.map(mapWebimToChatMessage)).sort(
+        (a, b) => (a.createdAt <= b.createdAt ? 1 : -1)
+      )
     );
   }, []);
 
@@ -109,16 +115,46 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
     await RNWebim.send(text);
   }, []);
 
+  const renderQuote = useCallback(
+    (args: Readonly<BubbleProps<WebimWithReplyMessage>>) => {
+      if (args.currentMessage?.quote) {
+        const quote = args.currentMessage?.quote;
+        return (
+          <View
+            style={{
+              borderLeftColor: 'blue',
+              borderLeftWidth: 2,
+              marginLeft: 10,
+              marginTop: 10,
+              padding: 5,
+            }}
+          >
+            <Text style={{ color: 'grey' }}>{quote.messageText}</Text>
+            {quote?.timestamp && (
+              <Text style={{ fontSize: 10, color: '#bebcbc' }}>
+                {new Date(quote.timestamp).toTimeString().split(' ')[0]}
+              </Text>
+            )}
+          </View>
+        );
+      }
+
+      return <></>;
+    },
+    []
+  );
+
   if (initState === 'INIT') {
     return (
       <>
-        <GiftedChat
+        <GiftedChat<WebimWithReplyMessage>
           wrapInSafeArea={true}
           user={{
             avatar: 'https://i.pravatar.cc/300',
             _id: 'custom_id',
             name: userFields.fields.display_name,
           }}
+          renderCustomView={renderQuote}
           showUserAvatar={true}
           scrollToBottom={true}
           renderUsernameOnMessage={true}
@@ -132,7 +168,6 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
             // @ts-ignore
             onSend(data[0].text);
           }}
-          inverted={true}
         />
         {!!unread && (
           <Text style={StyleSheet.absoluteFillObject}>{unread}</Text>

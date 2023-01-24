@@ -1,28 +1,16 @@
-import type {
-  IChatMessage,
-  IMessage,
-  Reply,
-  User,
-} from 'react-native-gifted-chat';
-import type { WebimMessage } from 'rn-webim-chat';
+import type { IChatMessage, User } from 'react-native-gifted-chat';
+import type { Quote, WebimMessage } from 'rn-webim-chat';
 
-export function mapWebimToChatMessage(msg: WebimMessage): IChatMessage {
+export type WebimWithReplyMessage = IChatMessage & { quote?: Quote };
+
+export function mapWebimToChatMessage(
+  msg: WebimMessage
+): WebimWithReplyMessage {
   const mappedUser: User = {
     _id: msg.operatorId || 'custom_id',
     name: msg.name,
     avatar: msg.avatar,
   };
-
-  console.log(
-    'MappedUser: ',
-    mappedUser,
-    {
-      _id: msg.name,
-      name: msg.name,
-      avatar: msg.avatar,
-    },
-    msg
-  );
 
   return {
     _id: msg.serverSideId || msg.id,
@@ -40,20 +28,6 @@ export function mapWebimToChatMessage(msg: WebimMessage): IChatMessage {
       msg.type !== 'VISITOR' &&
       msg.type !== 'FILE_FROM_OPERATOR' &&
       msg.type !== 'FILE_FROM_VISITOR',
-    quickReplies: msg?.quote
-      ? [
-          {
-            type: 'radio' as 'radio',
-            values: [
-              {
-                messageId: msg.quote.messageId,
-                value: msg.quote.messageText,
-                title: msg.quote.senderName,
-              } as Reply,
-            ],
-            keepIt: true,
-          },
-        ]
-      : undefined,
-  } as IMessage;
+    quote: msg.quote,
+  } as WebimWithReplyMessage;
 }
