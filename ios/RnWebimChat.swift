@@ -3,7 +3,12 @@ import Foundation
 
 
 @objc(RnWebimChat)
-open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, FatalErrorHandler, NotFatalErrorHandler, SendFileCompletionHandler {
+open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, FatalErrorHandler, NotFatalErrorHandler, SendFileCompletionHandler, EditMessageCompletionHandler {
+    
+    public func onFailure(messageID: String, error: EditMessageError) {
+        //
+    }
+    
     
     var chatSession: WebimSession?
     var messageStream: MessageStream!
@@ -353,6 +358,28 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             resolve(nil)
         }
     }
+    
+    func replyMessage(messageText: String, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+        try messageStream.reply(message: messageText, repliedMessage: <#T##Message#>)
+    }
+    
+    func editMessage(editMessage: NSDictionary, messageText: String, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+        if(messageStream == nil) {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Can not get an operator. As session is null.", isFatal: true)
+            return
+        }
+        let tmpMessage = EditMessage.init(id: editMessage.value(forKey: "id") as! String,
+                                          text: editMessage.value(forKey: "text") as! String,
+                                          messageCanBeEdited: (editMessage.value(forKey: "canBeEdited") != nil),
+                                          messageIsEdited: (editMessage.value(forKey: "isEdited") != nil))
+
+        do {
+            try messageStream.edit(message: tmpMessage, text: messageText, completionHandler: self)
+        } catch {
+            
+        }
+    }
+
 
     @objc(tryAttachFile:withResolver:)
     func tryAttachFile(reject: @escaping RCTResponseSenderBlock, resolve: @escaping RCTResponseSenderBlock) -> Void {
@@ -661,4 +688,120 @@ extension RnWebimChat: UIImagePickerControllerDelegate {
 
 extension RnWebimChat: UINavigationControllerDelegate {
 
+}
+
+class EditMessage: Message {
+    private let id: String
+    private let text: String
+    private var messageCanBeEdited: Bool
+    private var messageIsEdited: Bool
+    
+    init(id: String,
+         text: String,
+         messageCanBeEdited: Bool,
+         messageIsEdited: Bool) {
+        self.id = id
+        self.text = text
+        self.messageCanBeEdited = messageCanBeEdited
+        self.messageIsEdited = messageIsEdited
+    }
+    
+    
+    func getRawData() -> [String : Any?]? {
+        return nil
+    }
+    
+    func getData() -> MessageData? {
+        return nil
+    }
+    
+    func getID() -> String {
+        return id
+    }
+    
+    func getServerSideID() -> String? {
+        return nil
+    }
+    
+    func getCurrentChatID() -> String? {
+        return nil
+    }
+    
+    func getKeyboard() -> Keyboard? {
+        return nil
+    }
+    
+    func getKeyboardRequest() -> KeyboardRequest? {
+        return nil
+    }
+    
+    func getOperatorID() -> String? {
+        return nil
+    }
+    
+    func getQuote() -> Quote? {
+        return nil
+    }
+    
+    func getSticker() -> Sticker? {
+        return nil
+    }
+    
+    func getSenderAvatarFullURL() -> URL? {
+        return nil
+    }
+    
+    func getSenderName() -> String {
+        return ""
+    }
+    
+    func getSendStatus() -> MessageSendStatus {
+        return .sent
+    }
+    
+    func getText() -> String {
+        return text
+    }
+    
+    func getTime() -> Date {
+        return Date.init()
+    }
+    
+    func getType() -> MessageType {
+        return .info
+    }
+    
+    func isEqual(to message: Message) -> Bool {
+        return false
+    }
+    
+    func isReadByOperator() -> Bool {
+        return false
+    }
+    
+    func canBeEdited() -> Bool {
+        return messageCanBeEdited
+    }
+    
+    func canBeReplied() -> Bool {
+        return false
+    }
+    
+    func isEdited() -> Bool {
+        return messageIsEdited
+    }
+    
+    func canVisitorReact() -> Bool {
+        return false
+    }
+    
+    func getVisitorReaction() -> String? {
+        return nil
+    }
+    
+    func canVisitorChangeReaction() -> Bool {
+        return false
+    }
+    
+    
 }

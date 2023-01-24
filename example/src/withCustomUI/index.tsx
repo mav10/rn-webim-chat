@@ -1,14 +1,27 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ChatContainerBaseProps } from '../chat-container';
 import {
+  Bubble,
   BubbleProps,
+  Composer,
   GiftedChat,
   IChatMessage,
+  InputToolbar,
+  InputToolbarProps,
 } from 'react-native-gifted-chat';
 import RNWebim from 'rn-webim-chat';
 import { getHashForChatSign } from '../chat-utils';
 import * as AppConfig from '../../package.json';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  Vibration,
+  View,
+} from 'react-native';
+import { SwipeRow } from 'react-native-swipe-list-view';
 import { mapWebimToChatMessage, WebimWithReplyMessage } from './message-helper';
 
 const MESSAGE_BATCH_SIZE = 20;
@@ -22,6 +35,8 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
   const [unread, setUnread] = useState<number>(0);
 
   const [messages, setMessages] = useState<IChatMessage[]>();
+  const [replyMessage, setReplyMessage] =
+    useState<WebimWithReplyMessage | null>(null);
 
   useEffect(() => {
     const bootstrapAsync = async () => {
@@ -68,6 +83,52 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
     RNWebim.addUnreadCountListener(setUnread);
   }, [messages]);
 
+  const BubbleComp = (args: Readonly<BubbleProps<WebimWithReplyMessage>>) => {
+    const { system } = args.currentMessage;
+
+    const onLeftAction = useCallback(
+      ({ isActivated }) => {
+        if (isActivated) {
+          console.log(args.currentMessage);
+          Vibration.vibrate(50);
+          setReplyMessage(args?.currentMessage || null);
+        }
+      },
+      [args.currentMessage]
+    );
+
+    return (
+      <SwipeRow
+        useNativeDriver
+        onLeftActionStatusChange={onLeftAction}
+        disableLeftSwipe
+        disableRightSwipe={
+          system ||
+          args.currentMessage?.user?._id === 'custom_id' ||
+          !!args.currentMessage?.quote ||
+          args.currentMessage?.audio ||
+          args.currentMessage?.image
+        }
+        leftActivationValue={90}
+        leftActionValue={0}
+        swipeKey={args.currentMessage?._id + ''}
+      >
+        <></>
+        <Bubble {...args}>
+          <></>
+        </Bubble>
+      </SwipeRow>
+    );
+  };
+
+  const renderBubble = (args: Readonly<BubbleProps<WebimWithReplyMessage>>) => {
+    return (
+      <>
+        <BubbleComp {...args} />
+      </>
+    );
+  };
+
   const loadLastMessages = useCallback(async () => {
     const webimMessages = await RNWebim.getLastMessages(MESSAGE_BATCH_SIZE);
     setMessages(
@@ -111,9 +172,16 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
     }
   }, [chatAccount, privateKey, userFields]);
 
-  const onSend = useCallback(async (text: string) => {
-    await RNWebim.send(text);
-  }, []);
+  const onSend = useCallback(
+    async (text: string) => {
+      if (replyMessage) {
+        // await RNWebim.reply()
+      } else {
+        await RNWebim.send(text);
+      }
+    },
+    [replyMessage]
+  );
 
   const renderQuote = useCallback(
     (args: Readonly<BubbleProps<WebimWithReplyMessage>>) => {
@@ -144,6 +212,90 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
     []
   );
 
+  const Reply = useMemo(() => {
+    return (
+      <View
+        style={{
+          height: 55,
+          flexDirection: 'row',
+          marginTop: 10,
+          backgroundColor: 'rgba(0,0,0,.1)',
+          borderRadius: 10,
+          position: 'relative',
+        }}
+      >
+        <View style={{ height: 55, width: 5, backgroundColor: 'red' }} />
+        <View style={{ flexDirection: 'column', overflow: 'hidden' }}>
+          <Text
+            style={{
+              color: 'red',
+              paddingLeft: 10,
+              paddingTop: 5,
+              fontWeight: 'bold',
+            }}
+          >
+            {replyMessage?.user.name}
+          </Text>
+          <Text
+            style={{
+              color: '#034f84',
+              paddingLeft: 10,
+              paddingTop: 5,
+              marginBottom: 2,
+            }}
+          >
+            {replyMessage?.text}
+          </Text>
+        </View>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'flex-end',
+            paddingRight: 2,
+            position: 'absolute',
+            right: 0,
+            top: 0,
+          }}
+        >
+          <TouchableOpacity
+            onPress={() => {
+              setReplyMessage(null);
+            }}
+          >
+            <Text>X</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }, [replyMessage?.text, replyMessage?.user.name]);
+
+  const renderInputToolbar = useCallback(
+    (args: InputToolbarProps<WebimWithReplyMessage>) => {
+      return (
+        <InputToolbar
+          {...args}
+          containerStyle={{
+            marginLeft: 15,
+            marginRight: 15,
+            marginBottom: 5,
+            borderRadius: 25,
+            borderColor: '#fff',
+            borderTopWidth: 0,
+          }}
+          renderComposer={(props1) => {
+            return (
+              <View style={{ flex: 1 }}>
+                {!!replyMessage && <Reply />}
+                <Composer {...props1} />
+              </View>
+            );
+          }}
+        />
+      );
+    },
+    [Reply, replyMessage]
+  );
+
   if (initState === 'INIT') {
     return (
       <>
@@ -154,7 +306,9 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
             _id: 'custom_id',
             name: userFields.fields.display_name,
           }}
+          renderBubble={renderBubble}
           renderCustomView={renderQuote}
+          renderInputToolbar={renderInputToolbar}
           showUserAvatar={true}
           scrollToBottom={true}
           renderUsernameOnMessage={true}
