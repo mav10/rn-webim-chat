@@ -8,13 +8,7 @@ import {
 } from 'rn-webim-chat';
 import { getHashForChatSign } from '../chat-utils';
 import * as AppConfig from '../../package.json';
-import {
-  Button,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ChatContainerBaseProps } from '../chat-container';
 
 export const SimpleChatExample = (props: ChatContainerBaseProps) => {
@@ -186,7 +180,10 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
     try {
       const lastMyMessage = result.filter((x) => !x.operatorId)[0];
       if (lastMyMessage) {
-        await RNWebim.editMessage({ ...lastMyMessage, canEdit: true }, 'Edited my text');
+        await RNWebim.editMessage(
+          { ...lastMyMessage, canEdit: true },
+          'Edited my text'
+        );
       } else {
         throw Error('no messages to edit');
       }
