@@ -359,24 +359,37 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         }
     }
     
-    func replyMessage(messageText: String, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
-        try messageStream.reply(message: messageText, repliedMessage: <#T##Message#>)
+    @objc(replyMessage:withText:withResolver:withRejecter:)
+    func replyMessage(repliedMessage: NSDictionary, text: String, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+        do {
+            let repliedInstance = ReactThreadMessage.init(jsonData: repliedMessage);
+            let messageId = try messageStream.reply(message: text, repliedMessage: repliedInstance)
+            resolve(messageId)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not send reply. Details: " + error.localizedDescription, isFatal: true)
+        }
     }
     
-    func editMessage(editMessage: NSDictionary, messageText: String, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+    @objc(editMessage:withText:withResolver:withRejecter:)
+    func editMessage(editMessage: NSDictionary, text: String, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         if(messageStream == nil) {
             handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Can not get an operator. As session is null.", isFatal: true)
             return
         }
-        let tmpMessage = EditMessage.init(id: editMessage.value(forKey: "id") as! String,
-                                          text: editMessage.value(forKey: "text") as! String,
-                                          messageCanBeEdited: (editMessage.value(forKey: "canBeEdited") != nil),
-                                          messageIsEdited: (editMessage.value(forKey: "isEdited") != nil))
-
         do {
-            try messageStream.edit(message: tmpMessage, text: messageText, completionHandler: self)
-        } catch {
-            
+            let tmpMessage = ReactThreadMessage.init(jsonData: editMessage)
+            let result = try messageStream.edit(message: tmpMessage, text: text, completionHandler: self)
+            resolve(result)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not edit message. Details: " + error.localizedDescription, isFatal: true)
         }
     }
 
@@ -690,29 +703,66 @@ extension RnWebimChat: UINavigationControllerDelegate {
 
 }
 
-class EditMessage: Message {
+class ReactThreadMessage: Message {
     private let id: String
+    private let serverSideID: String?
+    private let timeInMicrosecond: Int64
+    private let type: MessageType
     private let text: String
+    private let senderName: String
+    private let sendStatus: MessageSendStatus
+    private let senderAvatarURLString: String?
+    private var read: Bool
     private var messageCanBeEdited: Bool
+    private var messageCanBeReplied: Bool
     private var messageIsEdited: Bool
     
-    init(id: String,
-         text: String,
-         messageCanBeEdited: Bool,
-         messageIsEdited: Bool) {
-        self.id = id
-        self.text = text
-        self.messageCanBeEdited = messageCanBeEdited
-        self.messageIsEdited = messageIsEdited
+    private var visitorCanReact: Bool?
+    private var visitorChangeReaction: Bool?
+    private var visitorReactionInfo: String?
+    
+    private let operatorID: String?
+    private let quote: Quote?
+    private var data: MessageData?
+
+    private let rawText: String?
+
+    private let sticker: Sticker?
+    private var rawData: [String: Any?]?
+
+    init(jsonData: NSDictionary) {
+        self.id = jsonData.value(forKey: "id") as! String
+        self.serverSideID = jsonData.value(forKey: "serverSideId") as? String
+        self.timeInMicrosecond = jsonData.value(forKey: "time") as! Int64
+        self.type = MessageType.operatorMessage //jsonData.value(forKey: "type") as! MessageType
+        self.text = jsonData.value(forKey: "text") as! String
+        self.senderName = jsonData.value(forKey: "name") as! String
+        self.sendStatus = MessageSendStatus.sent //jsonData.value(forKey: "status") as! MessageSendStatus
+        self.senderAvatarURLString = jsonData.value(forKey: "avatar") as? String
+        self.read = jsonData.value(forKey: "read") as! Bool
+        self.messageCanBeEdited = jsonData.value(forKey: "canEdit") as! Bool
+        self.messageIsEdited = jsonData.value(forKey: "isEdited") as! Bool
+        self.messageCanBeReplied = jsonData.value(forKey: "canReply") as! Bool
+        self.visitorCanReact = jsonData.value(forKey: "canReact") as? Bool
+        self.visitorChangeReaction = jsonData.value(forKey: "canChangeReaction") as? Bool
+        self.visitorReactionInfo = jsonData.value(forKey: "visitorReaction") as? String
+        
+        self.sticker = nil
+        self.rawData = nil
+        self.rawText = nil
+        
+        self.operatorID = nil
+        self.quote = nil
+        self.data = nil
     }
     
     
     func getRawData() -> [String : Any?]? {
-        return nil
+        return rawData
     }
     
     func getData() -> MessageData? {
-        return nil
+        return data
     }
     
     func getID() -> String {
@@ -720,7 +770,7 @@ class EditMessage: Message {
     }
     
     func getServerSideID() -> String? {
-        return nil
+        return serverSideID
     }
     
     func getCurrentChatID() -> String? {
@@ -736,27 +786,30 @@ class EditMessage: Message {
     }
     
     func getOperatorID() -> String? {
-        return nil
+        return operatorID
     }
     
     func getQuote() -> Quote? {
-        return nil
+        return quote
     }
     
     func getSticker() -> Sticker? {
-        return nil
+        return sticker
     }
     
     func getSenderAvatarFullURL() -> URL? {
+        if(senderAvatarURLString != nil) {
+            return URL.init(string: senderAvatarURLString!)
+        }
         return nil
     }
     
     func getSenderName() -> String {
-        return ""
+        return senderName
     }
     
     func getSendStatus() -> MessageSendStatus {
-        return .sent
+        return sendStatus
     }
     
     func getText() -> String {
@@ -764,19 +817,23 @@ class EditMessage: Message {
     }
     
     func getTime() -> Date {
-        return Date.init()
+        // fromJava script it is already in ms
+        return Date(timeIntervalSince1970: TimeInterval(timeInMicrosecond))
     }
     
     func getType() -> MessageType {
-        return .info
+        return type
     }
     
     func isEqual(to message: Message) -> Bool {
-        return false
+        guard let message = message as? ReactThreadMessage else {
+            return false
+        }
+        return (self == message)
     }
     
     func isReadByOperator() -> Bool {
-        return false
+        return read
     }
     
     func canBeEdited() -> Bool {
@@ -784,24 +841,42 @@ class EditMessage: Message {
     }
     
     func canBeReplied() -> Bool {
-        return false
+        return messageCanBeReplied
     }
     
     func isEdited() -> Bool {
         return messageIsEdited
     }
     
-    func canVisitorReact() -> Bool {
-        return false
-    }
-    
     func getVisitorReaction() -> String? {
-        return nil
+        return visitorReactionInfo
     }
     
+    func canVisitorReact() -> Bool {
+        return visitorCanReact ?? false
+    }
+
     func canVisitorChangeReaction() -> Bool {
-        return false
+        return visitorChangeReaction ?? false
     }
     
+}
+
+extension ReactThreadMessage: Equatable {
+    
+    static func == (lhs: ReactThreadMessage,
+                    rhs: ReactThreadMessage) -> Bool {
+        return ((((((((lhs.id == rhs.id)
+            && (lhs.operatorID == rhs.operatorID))
+            && (lhs.rawText == rhs.rawText))
+            && (lhs.senderAvatarURLString == rhs.senderAvatarURLString))
+            && (lhs.senderName == rhs.senderName))
+            && (lhs.text == rhs.text))
+            && (lhs.timeInMicrosecond == rhs.timeInMicrosecond))
+            && (lhs.type == rhs.type))
+            && (lhs.isReadByOperator() == rhs.isReadByOperator()
+            && (lhs.canBeEdited() == rhs.canBeEdited()
+            && (lhs.isEdited() == rhs.isEdited())))
+    }
     
 }

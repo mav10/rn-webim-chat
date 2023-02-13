@@ -111,6 +111,27 @@ export class RNWebim {
       });
   }
 
+  static replyMessage(
+    message: WebimMessage,
+    replyText: string
+  ): Promise<string> {
+    return RnWebimChat.replyMessage(message, replyText)
+      .catch(webimErrorHandler)
+      .then((id: string) => {
+        console.log('Inside method: ', id);
+        return id;
+      });
+  }
+
+  static editMessage(message: WebimMessage, editText: string): Promise<void> {
+    return RnWebimChat.editMessage(message, editText)
+      .catch(webimErrorHandler)
+      .then((args: any) => {
+        console.log('Inside method: ', args);
+        return args;
+      });
+  }
+
   static readMessages(): Promise<void> {
     return RnWebimChat.readMessages()
       .catch(webimErrorHandler)

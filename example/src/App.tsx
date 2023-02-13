@@ -10,7 +10,7 @@ const CHAT_SERVICE_ACCOUNT = 'comrnwebimchatexample001';
 
 const acc = {
   fields: {
-    id: 'custom-id',
+    id: 'custom-id-2',
     display_name: AppConfig.name,
     avatar_url: 'https://i.pravatar.cc/300',
     phone: '+79000000000',

@@ -45,6 +45,15 @@ RCT_EXTERN_METHOD(send:(NSString*)message
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(replyMessage:(NSDictionary*)repliedMessage withText:(NSString*)text
+                  withResolver:(RCTPromiseResolveBlock)resolve
+                  withRejecter:(RCTPromiseRejectBlock)reject)
+
+
+RCT_EXTERN_METHOD(editMessage:(NSDictionary*)editedMessage withText:(NSString*)text
+                  withResolver:(RCTPromiseResolveBlock)resolve
+                  withRejecter:(RCTPromiseRejectBlock)reject)
+
 
 RCT_EXTERN_METHOD(getCurrentOperator:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)

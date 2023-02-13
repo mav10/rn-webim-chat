@@ -8,7 +8,13 @@ import {
 } from 'rn-webim-chat';
 import { getHashForChatSign } from '../chat-utils';
 import * as AppConfig from '../../package.json';
-import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Button,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type { ChatContainerBaseProps } from '../chat-container';
 
 export const SimpleChatExample = (props: ChatContainerBaseProps) => {
@@ -70,7 +76,7 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
         console.log('State listener: ', state);
       });
       await RNWebim.addNewMessageListener(async (args) => {
-        console.log('Got message listener listener: ', args);
+        console.log('Got message listener listener: ', args.canEdit, args);
       });
       await RNWebim.addTypingListener((args) => {
         console.log('Typing listener: ', args);
@@ -162,6 +168,34 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
     [handleError]
   );
 
+  const onReply = useCallback(async () => {
+    try {
+      const lastOperatorMessage = result.filter((x) => !!x.operatorId)[0];
+      if (lastOperatorMessage) {
+        await RNWebim.replyMessage(lastOperatorMessage, 'Reply text');
+      } else {
+        throw Error('no messages to reply');
+      }
+    } catch (e) {
+      console.log('[Chat][Reply] error: ', JSON.stringify(e), '\n', e);
+      handleError(e);
+    }
+  }, [result, handleError]);
+
+  const onEdit = useCallback(async () => {
+    try {
+      const lastMyMessage = result.filter((x) => !x.operatorId)[0];
+      if (lastMyMessage) {
+        await RNWebim.editMessage({ ...lastMyMessage, canEdit: true }, 'Edited my text');
+      } else {
+        throw Error('no messages to edit');
+      }
+    } catch (e) {
+      console.log('[Chat][Edit] error: ', JSON.stringify(e), '\n', e);
+      handleError(e);
+    }
+  }, [result, handleError]);
+
   const onSelectFiles = useCallback(async () => {
     try {
       const fileResult = await RNWebim.tryAttachAndSendFile();
@@ -214,6 +248,11 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
       <View style={styles.buttonsContainer}>
         <Button title={'Read messages'} onPress={onGetAllMessages} />
         <Button title={'Send messages'} onPress={sendTestMessage} />
+      </View>
+
+      <View style={styles.buttonsContainer}>
+        <Button title={'Reply on first'} onPress={onReply} />
+        <Button title={'Edit first message'} onPress={onEdit} />
       </View>
 
       <View style={styles.buttonsContainer}>
