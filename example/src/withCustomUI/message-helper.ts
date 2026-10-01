@@ -7,6 +7,9 @@ import type {
 import type { WebimMessage } from 'rn-webim-chat';
 
 export function mapWebimToChatMessage(msg: WebimMessage): IChatMessage {
+  const attachment = msg.attachment;
+  const isImage = attachment?.contentType.startsWith('image/') ?? false;
+  const isVideo = attachment?.contentType.startsWith('video/') ?? false;
   const mappedUser: User = {
     _id: msg.operatorId || 'custom_id',
     name: msg.name,
@@ -26,14 +29,13 @@ export function mapWebimToChatMessage(msg: WebimMessage): IChatMessage {
 
   return {
     _id: msg.id,
-    text: msg.attachment?.url ? '' : msg.text,
+    text: attachment ? (isImage || isVideo ? '' : attachment.name) : msg.text,
     createdAt: msg.time,
     sent: msg.status === 'SENT',
     pending: msg.status === 'SENDING',
     received: msg.read,
-    image: msg.attachment?.contentType.includes('image')
-      ? msg.attachment?.url
-      : '',
+    image: isImage ? attachment?.url : undefined,
+    video: isVideo ? attachment?.url : undefined,
     user: mappedUser,
     system:
       msg.type !== 'OPERATOR' &&

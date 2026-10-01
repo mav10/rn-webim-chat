@@ -435,8 +435,8 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
           public void onProgress(@NonNull Message.Id id, long sentBytes) {
             WritableMap result = Arguments.createMap();
             result.putString("id", id.toString());
-            result.putString("bytes", Long.toString(sentBytes));
-            result.putString("fullSize", Long.toString(fileToUpload.getTotalSpace()));
+            result.putDouble("bytes", (double) sentBytes);
+            result.putDouble("fullSize", (double) fileToUpload.length());
             emitDeviceEvent("fileUploading", result);
           }
 

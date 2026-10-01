@@ -1,5 +1,6 @@
 import WebimMobileSDK
 import Foundation
+import UniformTypeIdentifiers
 
 
 @objc(RnWebimChat)
@@ -34,7 +35,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         super.init();
         self.pickerController.delegate = self
         self.pickerController.allowsEditing = true
-        self.pickerController.mediaTypes = ["public.image"]
+        self.pickerController.mediaTypes = ["public.image", "public.movie"]
     }
 
 
@@ -640,27 +641,51 @@ public protocol ImagePickerDelegate: AnyObject {
 }
 
 extension RnWebimChat: UIImagePickerControllerDelegate {
+    public func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        self.pickerController(picker)
+        if let callback = self.rejectAttachCallback {
+            callback([getErrorObject(errorCode: "ATTACHMENT_CANCELLED", message: "Attachment selection was cancelled", isFatal: false)])
+    }
+        self.resolveAttachCallback = nil
+        self.rejectAttachCallback = nil
+    }
+
   public func imagePickerController(_ picker: UIImagePickerController,
                                     didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        if let mediaURL = info[UIImagePickerController.InfoKey.mediaURL] as? URL {
+            let extensionName = mediaURL.pathExtension.lowercased()
+            let mimeType = UTType(filenameExtension: extensionName)?.preferredMIMEType ?? "application/octet-stream"
+            self.completeAttachment(picker: picker, url: mediaURL, mimeType: mimeType)
+            return
+        }
+
     if let imgUrl = info[UIImagePickerController.InfoKey.imageURL] as? URL {
         let imgName = imgUrl.lastPathComponent
         let documentDirectory = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first
-        let localPath = documentDirectory?.appending(imgName)
+            let localPath = documentDirectory?.appending("/" + imgName)
         let image = info[UIImagePickerController.InfoKey.originalImage] as! UIImage
         let data = image.pngData()! as NSData
         data.write(toFile: localPath!, atomically: true)
         let photoURL = URL.init(fileURLWithPath: localPath!)
 
         let extensionName = photoURL.pathExtension.lowercased()
-        self.pickerController(picker)
-        self.resolveAttachCallback!([[
-            "uri": photoURL.absoluteString,
-            "name": imgName,
-            "mime": "image/" + extensionName,
-            "extension": extensionName
-        ]])
+            self.completeAttachment(picker: picker, url: photoURL, mimeType: "image/" + extensionName)
     }
   }
+
+    private func completeAttachment(picker: UIImagePickerController, url: URL, mimeType: String) {
+        self.pickerController(picker)
+        guard let callback = self.resolveAttachCallback else { return }
+        let result: [String: String] = [
+            "uri": url.absoluteString,
+            "name": url.lastPathComponent,
+            "mime": mimeType,
+            "extension": url.pathExtension.lowercased()
+        ]
+        callback([result])
+        self.resolveAttachCallback = nil
+        self.rejectAttachCallback = nil
+    }
 }
 
 extension RnWebimChat: UINavigationControllerDelegate {

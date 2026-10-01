@@ -3,7 +3,14 @@ import type { ChatContainerBaseProps } from '../chat-container';
 import { GiftedChat, IChatMessage } from 'react-native-gifted-chat';
 import RNWebim, { WebimMessage } from 'rn-webim-chat';
 import * as AppConfig from '../../package.json';
-import { ActivityIndicator, Alert, StyleSheet, Text } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+} from 'react-native';
 import { mapWebimToChatMessage } from './message-helper';
 import { mergeMessages, removeMessage, replaceMessage } from './message-store';
 import { closeChatSession, openChatSession } from '../services/chat-service';
@@ -139,14 +146,29 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
             isLoading: loadingEarlier,
             onPress: loadNextMessages,
           }}
+          renderMessageVideo={({ currentMessage }) => {
+            const videoUrl = currentMessage.video;
+            if (!videoUrl) return null;
+            return (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  Linking.openURL(videoUrl).catch(() =>
+                    Alert.alert('Unable to open video', 'The attachment link could not be opened.')
+                  )
+                }
+                style={{ padding: 10 }}
+              >
+                <Text>Open video attachment</Text>
+              </Pressable>
+            );
+          }}
           onSend={(data) => {
             if (data[0]?.text) onSend(data[0].text);
           }}
           isInverted={true}
         />
-        {!!unread && (
-          <Text style={StyleSheet.absoluteFill}>{unread}</Text>
-        )}
+        {!!unread && <Text style={StyleSheet.absoluteFill}>{unread}</Text>}
       </>
     );
   }
