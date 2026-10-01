@@ -25,7 +25,7 @@ export function mapWebimToChatMessage(msg: WebimMessage): IChatMessage {
   );
 
   return {
-    _id: msg.serverSideId || msg.id,
+    _id: msg.id,
     text: msg.attachment?.url ? '' : msg.text,
     createdAt: msg.time,
     sent: msg.status === 'SENT',

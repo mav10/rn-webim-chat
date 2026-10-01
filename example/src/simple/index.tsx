@@ -6,29 +6,32 @@ import {
   WebimMessage,
   WebimNativeError,
 } from 'rn-webim-chat';
-import { getHashForChatSign } from '../chat-utils';
 import * as AppConfig from '../../package.json';
 import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ChatContainerBaseProps } from '../chat-container';
+import type { WebimSubscription } from 'rn-webim-chat';
+import { closeChatSession, openChatSession } from '../services/chat-service';
 
 export const SimpleChatExample = (props: ChatContainerBaseProps) => {
-  const {
-    chatAccount: CHAT_SERVICE_ACCOUNT,
-    privateKey: PRIVATE_KEY,
-    userFields: acc,
-  } = props;
+  const { chatAccount: CHAT_SERVICE_ACCOUNT, userFields } = props;
   const [result, setResult] = React.useState<WebimMessage[]>([]);
   const [isInit, setInit] = React.useState<boolean>(false);
   const [isPaused, setPaused] = React.useState<boolean>(true);
   const [fatalError, setFatalError] = React.useState<string>('');
   const [notFatalError, setNotFatalError] = React.useState<string>('');
+  const subscriptions = React.useRef<WebimSubscription[]>([]);
+  const sessionOwner = React.useRef({}).current;
+  const mounted = React.useRef(true);
 
   React.useEffect(() => {
+    mounted.current = true;
     return () => {
-      onCloseSession();
+      mounted.current = false;
+      subscriptions.current.forEach((subscription) => subscription.remove());
+      subscriptions.current = [];
+      closeChatSession(sessionOwner).catch(console.error);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionOwner]);
 
   const handleError = useCallback((err: any) => {
     if (isWebimError(err)) {
@@ -54,40 +57,49 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
     try {
       setFatalError('');
       setNotFatalError('');
-      acc.hash = await getHashForChatSign(acc.fields, PRIVATE_KEY);
       const sessionsParams = {
         accountName: CHAT_SERVICE_ACCOUNT,
         location: 'default',
         storeHistoryLocally: true,
-        accountJSON: JSON.stringify(acc),
+        ...(userFields ? { accountJSON: JSON.stringify(userFields) } : {}),
         appVersion: AppConfig.version,
-        clearVisitorData: true,
+        clearVisitorData: false,
       };
 
-      await RNWebim.initSession(sessionsParams);
-      await RNWebim.addErrorListener(errorListener);
-      await RNWebim.addSateListener((state) => {
-        console.log('State listener: ', state);
-      });
-      await RNWebim.addNewMessageListener(async (args) => {
-        console.log('Got message listener listener: ', args);
-      });
-      await RNWebim.addTypingListener((args) => {
-        console.log('Typing listener: ', args);
-      });
-      await RNWebim.addUnreadCountListener((args) => {
-        console.log('UnreadCountListener listener: ', args);
-      });
-      await RNWebim.addFileUploadingListener((args) => {
-        console.log('File uploading listener: ', args);
-      });
-      console.log('[Chat][Init] initialized with params: ', sessionsParams);
+      await openChatSession(sessionOwner, sessionsParams);
+      if (!mounted.current) return;
+      subscriptions.current.forEach((subscription) => subscription.remove());
+      subscriptions.current = [
+        RNWebim.addErrorListener(errorListener),
+        RNWebim.addSateListener((state) => {
+          console.log('State listener: ', state);
+        }),
+        RNWebim.addNewMessageListener((args) => {
+          console.log('Got message listener listener: ', args);
+        }),
+        RNWebim.addTypingListener((args) => {
+          console.log('Typing listener: ', args);
+        }),
+        RNWebim.addUnreadCountListener((args) => {
+          console.log('UnreadCountListener listener: ', args);
+        }),
+        RNWebim.addFileUploadingListener((args) => {
+          console.log('File uploading listener: ', args);
+        }),
+      ];
+      console.log('[Chat][Init] initialized');
       setInit(true);
     } catch (err: unknown) {
       console.log('[Chat][Init] error: ', JSON.stringify(err), '\n', err);
       handleError(err);
     }
-  }, [acc, PRIVATE_KEY, CHAT_SERVICE_ACCOUNT, errorListener, handleError]);
+  }, [
+    userFields,
+    CHAT_SERVICE_ACCOUNT,
+    errorListener,
+    handleError,
+    sessionOwner,
+  ]);
 
   const onResume = useCallback(async () => {
     try {
@@ -130,16 +142,19 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
     try {
       setFatalError('');
       setNotFatalError('');
-      await RNWebim.destroySession(true);
+      subscriptions.current.forEach((subscription) => subscription.remove());
+      subscriptions.current = [];
+      await closeChatSession(sessionOwner);
       console.log('[Chat][Destroy] success');
 
       setInit(false);
+      setPaused(true);
       setResult([]);
     } catch (err: unknown) {
       console.log('[Chat][Destroy] error: ', JSON.stringify(err));
       handleError(err);
     }
-  }, [handleError]);
+  }, [handleError, sessionOwner]);
 
   const sendTestMessage = useCallback(async () => {
     try {
@@ -205,7 +220,7 @@ export const SimpleChatExample = (props: ChatContainerBaseProps) => {
       <Text>{`Chat is init: ${isInit} (Paused: ${isPaused})`}</Text>
       <View style={styles.buttonsContainer}>
         <Button title={'Init session'} onPress={intSession} />
-        <Button title={'Close session'} onPress={onCloseSession} />
+        <Button title={'Destroy session'} onPress={onCloseSession} />
       </View>
       <View style={styles.buttonsContainer}>
         <Button title={'Resume session'} onPress={onResume} />

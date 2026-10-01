@@ -93,7 +93,7 @@ await RNWebim.initSession(builderParams: SessionBuilderParams)
 **SessionBuilderParams:**
 - accountName (required) - name of your account in webim system
 - location (required) - name of location. For example "mobile"
-- accountJSON - encrypted json with user data. See [**Start chat with user data**](#start-chat-with-user-data)
+- accountJSON - JSON string containing server-signed visitor fields (not encrypted). See [**Start chat with user data**](#start-chat-with-user-data)
 - clearVisitorData - clear visitor data before start chat
 - storeHistoryLocally - cache messages in local store
 - title - title for chat in webim web panel
@@ -131,14 +131,14 @@ await RNWebim.pauseSession()
 ```js
 import { RNWebim,  WebimEvents} from 'rn-webim-chat';
 
-const listener = RNWebim.addNewMessageListener(({ msg }) => {
+const listener = RNWebim.addNewMessageListener((msg) => {
   // do something
 });
 // usubscribe
 listener.remove();
 
 // or
-const listener2 = RNWebim.addListener(WebimEvents.NEW_MESSAGE, ({ msg }) => {
+const listener2 = RNWebim.addListener(WebimEvents.NEW_MESSAGE, (msg) => {
     // do something
 });
 ```
@@ -323,79 +323,28 @@ RNWebim.destroySession(clearData);
 - clearData (optional) boolean - If true wil
 
 ## Start chat with user data
-**Tl;DR;**
-You have to generate private key in your Webim Account and kinda sign your user fields values.
-For more details see [webim documentation](https://webim.ru/kb/dev/identification/id-2-0.html) for client identification.
-
-in [Example app](./example) there is code how to achieve it.
-Example:
-
-I'd recommend to you use some lightweight library. HMAC-256 is enough. Actually you can use md5 algorithm  - but I'd avoid it.
-There are some other aproches e.g. with JsCrypto or with [react-native-crypto ](https://github.com/tradle/react-native-crypto). But here you need to hash all your modules.
-Like [here](https://github.com/volga-volga/react-native-webim#start-chat-with-user-data). But the choice it is up to you!
-
-- install [js-sha256](https://github.com/emn178/js-sha256)
-- write hash-function to sign your fields.
-- use it in your app.
+The [example app](./example) starts as a guest with no `accountJSON`. For an
+identified visitor, authenticate with **your backend** first. The backend must
+generate the `fields` and `hash` according to the [Webim identification
+protocol](https://webim.ru/kb/dev/identification/id-2-0.html), then return the
+signed object to the app. Keep the Webim private key on the server; never ship
+it in a mobile bundle or log signed visitor data.
 
 ```ts
-// chat-utils.ts file
-import { sha256 } from 'js-sha256';
-
-const getHmac_sha256 = async (str: string, privateKey: string) => {
-  return sha256.hmac(privateKey, str);
-};
-
-/**
- * Returns hash value for authorized user.
- * @param obj - User's json fields.
- * @param privateKey - private key value. By that hash will be generated.
- */
-export const getHashForChatSign = async (
-  obj: { [key: string]: string },
-  privateKey: string
-) => {
-  const keys = Object.keys(obj).sort();
-  const str = keys.map((key) => obj[key]).join('');
-  return await getHmac_sha256(str, privateKey);
-};
+const signedVisitor = await fetchSignedVisitorFromYourBackend();
+await RNWebim.initSession({
+  accountName: 'your-account',
+  location: 'default',
+  accountJSON: JSON.stringify(signedVisitor), // { fields: { id, ... }, hash }
+  clearVisitorData: false,
+});
+await RNWebim.resumeSession();
 ```
 
-```tsx
-// App.tsx file
-...
-import { getHashForChatSign } from './chat-utils';
-
-const PRIVATE_KEY = 'YOUR-PRIVATE-KEY-FROM-PORTAL';
-const CHAT_SERVICE_ACCOUNT = 'YOU-ACCOUNT';
-
-const acc = {
-  fields: {
-    id: 'some-id',
-    display_name: '1.0.0',
-    phone: '+79000000000',
-    address: 'Tomsk',
-  },
-  hash: '',
-};
-
-async function intSession() {
-  acc.hash = await getHashForChatSign(acc.fields, PRIVATE_KEY);
-  const sessionsParams = {
-    accountName: CHAT_SERVICE_ACCOUNT,
-    location: '',
-    storeHistoryLocally: true,
-    accountJSON: JSON.stringify(acc),
-    appVersion: AppConfig.version,
-    clearVisitorData: true,
-  };
-
-  await RNWebim.resumeSession(sessionsParams);
-  console.log('[Chat][Init] initialized with params: ', sessionsParams);
-};
-
-...
-```
+Destroying a session with `destroySession(false)` keeps visitor data for a
+subsequent session. Use `destroySession(true)` only on logout or when you
+intentionally need to clear that visitor's locally stored identity. If the
+previous example key was configured for a real Webim account, rotate it.
 
 
 ## Contributing

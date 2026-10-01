@@ -166,6 +166,10 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   @ReactMethod
   public void initSession(ReadableMap builderData, Promise promise) {
+    if (session != null) {
+      promise.resolve(Arguments.createMap());
+      return;
+    }
     String accountName = builderData.getString("accountName");
     String location = builderData.getString("location");
 
@@ -205,7 +209,6 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       }
 
       session.resume();
-      session.getStream().startChat();
       session.getStream().setChatRead();
       promise.resolve(Arguments.createMap());
     } catch (NullPointerException e) {
@@ -231,8 +234,10 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   public void destroySession(Boolean clearData, Promise promise) {
     try {
       if (session != null) {
-        session.getStream().closeChat();
-        tracker.destroy();
+        if (tracker != null) {
+          tracker.destroy();
+          tracker = null;
+        }
         if (clearData) {
           session.destroyWithClearVisitorData();
         } else {
@@ -324,6 +329,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   public void readMessages(final Promise promise) {
     try {
       session.getStream().setChatRead();
+      promise.resolve(Arguments.createMap());
     } catch (Exception e) {
       handleError(promise,
         FatalErrorType.UNKNOWN.name(),
@@ -605,7 +611,6 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     Message.Quote quote = msg.getQuote();
     if (quote != null) {
       WritableMap _att = Arguments.createMap();
-      _att.putString("authorId", quote.getAuthorId());
       _att.putString("senderName", quote.getSenderName());
       _att.putString("messageId", quote.getMessageId());
       _att.putString("messageText", quote.getMessageText());

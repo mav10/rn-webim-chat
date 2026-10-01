@@ -106,7 +106,7 @@ export type UpdateMessageListener = (data: {
   from: WebimMessage;
   to: WebimMessage;
 }) => void;
-export type RemoveMessageListener = (data: { msg: WebimMessage }) => void;
+export type RemoveMessageListener = (data: WebimMessage) => void;
 export type DialogClearedListener = () => void;
 export type TokenUpdatedListener = (token: string) => void;
 export type ErrorListener = (error: WebimNativeError) => void;

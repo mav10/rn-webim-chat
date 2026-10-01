@@ -1,24 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import * as AppConfig from '../package.json';
 import { Button, StyleSheet, Text, View } from 'react-native';
 import { SimpleChatExample } from './simple';
 import { CustomChat } from './withCustomUI';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-const PRIVATE_KEY = '15e4a2c08c0822b79a8b5b0f851c5ac4';
 const CHAT_SERVICE_ACCOUNT = 'comrnwebimchatexample001';
-
-const acc = {
-  fields: {
-    id: 'custom-id',
-    display_name: AppConfig.name,
-    avatar_url: 'https://i.pravatar.cc/300',
-    phone: '+79000000000',
-    address: 'Томск',
-    info: 'Some additional text info',
-  },
-  hash: '',
-};
 
 export default function App() {
   const [chatUI, setChatUI] = useState<'SIMPLE' | 'CUSTOM' | null>(null);
@@ -26,21 +12,9 @@ export default function App() {
   const content = useMemo(() => {
     switch (chatUI) {
       case 'SIMPLE':
-        return (
-          <SimpleChatExample
-            chatAccount={CHAT_SERVICE_ACCOUNT}
-            privateKey={PRIVATE_KEY}
-            userFields={acc}
-          />
-        );
+        return <SimpleChatExample chatAccount={CHAT_SERVICE_ACCOUNT} />;
       case 'CUSTOM':
-        return (
-          <CustomChat
-            privateKey={PRIVATE_KEY}
-            chatAccount={CHAT_SERVICE_ACCOUNT}
-            userFields={acc}
-          />
-        );
+        return <CustomChat chatAccount={CHAT_SERVICE_ACCOUNT} />;
       default:
         return <Text>Not selected UI</Text>;
     }

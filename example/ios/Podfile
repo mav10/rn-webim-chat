@@ -29,7 +29,7 @@ target 'RnWebimChatExample' do
   )
   # Comment the next line if you don't want to use dynamic frameworks
   # use_frameworks!
-  pod 'WebimClientLibrary', :git => 'https://github.com/webim/webim-client-sdk-ios.git', :tag => '3.37.4'
+  pod 'WebimMobileSDK', '4.0.1'
 
   target 'RnWebimChatExampleTests' do
     inherit! :complete

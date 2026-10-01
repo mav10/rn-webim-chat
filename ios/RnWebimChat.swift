@@ -1,4 +1,4 @@
-import WebimClientLibrary
+import WebimMobileSDK
 import Foundation
 
 
@@ -126,6 +126,11 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             }
         }
 
+        if messageTracker != nil {
+            resolve(nil)
+            return
+        }
+
         do {
             if(chatSession == nil) {
                 throw AccessError.invalidSession
@@ -168,6 +173,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     func pauseSession(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         do {
             try chatSession?.pause()
+            resolve(nil)
         } catch AccessError.invalidSession {
             handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
         } catch AccessError.invalidThread {
@@ -179,10 +185,10 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
     @objc(destroySession:withResolver:withRejecter:)
     func destroySession(clearuserData: Bool, resolve:RCTPromiseResolveBlock, reject:RCTPromiseRejectBlock) -> Void {
-        if(messageStream != nil) {
+        if(messageTracker != nil) {
             do {
-                try messageStream.closeChat()
-                messageStream = nil
+                try messageTracker?.destroy()
+                messageTracker = nil
             } catch AccessError.invalidSession {
                 handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Can not destroy. Session is destoyed", isFatal: true)
                 return
@@ -216,9 +222,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             chatSession = nil
         }
 
-        if (messageTracker != nil) {
-            messageTracker = nil
-        }
+        messageStream = nil
 
         resolve(nil)
     }

@@ -1,109 +1,120 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatContainerBaseProps } from '../chat-container';
 import { GiftedChat, IChatMessage } from 'react-native-gifted-chat';
-import RNWebim from 'rn-webim-chat';
-import { getHashForChatSign } from '../chat-utils';
+import RNWebim, { WebimMessage } from 'rn-webim-chat';
 import * as AppConfig from '../../package.json';
 import { ActivityIndicator, Alert, StyleSheet, Text } from 'react-native';
 import { mapWebimToChatMessage } from './message-helper';
+import { mergeMessages, removeMessage, replaceMessage } from './message-store';
+import { closeChatSession, openChatSession } from '../services/chat-service';
 
 const MESSAGE_BATCH_SIZE = 5;
 
 export const CustomChat = (props: ChatContainerBaseProps) => {
-  const { chatAccount, userFields, privateKey } = props;
+  const { chatAccount, userFields } = props;
+  const sessionOwner = useRef({}).current;
   const [initState, setInitState] = useState<
     'INIT' | 'PENDING' | 'FAILED' | null
   >(null);
   const [isTyping, setTyping] = useState<boolean>(false);
   const [unread, setUnread] = useState<number>(0);
 
-  const [messages, setMessages] = useState<IChatMessage[]>();
+  const [webimMessages, setMessages] = useState<WebimMessage[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const loadingHistory = useRef(false);
+  const messages: IChatMessage[] = webimMessages.map(mapWebimToChatMessage);
 
-  useEffect(() => {
-    const bootstrapAsync = async () => {
-      await initSession();
-      subscribeOnListeners();
-      await RNWebim.resumeSession();
-      await loadLastMessages();
-    };
-
-    bootstrapAsync();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const subscribeOnListeners = useCallback(() => {
-    RNWebim.addErrorListener((error) => {
-      Alert.alert(
-        error.errorType,
-        error.message + '\nError Code: ' + error.errorCode
-      );
-    });
-    RNWebim.addTypingListener((value) => {
-      setTyping(value.isTyping);
-    });
-    RNWebim.addNewMessageListener((message) => {
-      console.log('Catch new message', message, mapWebimToChatMessage(message));
-      setMessages((previousMessages) =>
-        GiftedChat.append(previousMessages, [mapWebimToChatMessage(message)])
-      );
-    });
-    RNWebim.addEditMessageListener((data) => {
-      const foundIndex = messages?.findIndex(
-        (x) => x._id === data.from.id || x._id === data.from.serverSideId
-      );
-      if (foundIndex) {
-        console.log(
-          'Will Update message',
-          // @ts-ignore
-          messages[foundIndex],
-          'to: ',
-          data.to
-        );
-      }
-    });
-    RNWebim.addUnreadCountListener(setUnread);
-  }, [messages]);
-
-  const loadLastMessages = useCallback(async () => {
-    const webimMessages = await RNWebim.getLastMessages(MESSAGE_BATCH_SIZE);
-    setMessages(
-      webimMessages
-        .map(mapWebimToChatMessage)
-        .sort((a, b) => (a.createdAt <= b.createdAt ? 1 : -1))
-    );
+  const loadLastMessages = useCallback(async (isActive: () => boolean) => {
+    const history = await RNWebim.getLastMessages(MESSAGE_BATCH_SIZE);
+    if (!isActive()) return;
+    setMessages((current) => mergeMessages(current, history, 'history'));
+    setHasMore(history.length > 0);
   }, []);
 
   const loadNextMessages = useCallback(async () => {
-    const webimMessages = await RNWebim.getNextMessages(MESSAGE_BATCH_SIZE);
-    setMessages((prev) =>
-      GiftedChat.append(prev, webimMessages.map(mapWebimToChatMessage))
-    );
-  }, []);
-
-  const initSession = useCallback(async () => {
+    if (loadingHistory.current || !hasMore) return;
+    loadingHistory.current = true;
+    setLoadingEarlier(true);
     try {
-      setInitState('PENDING');
-      const fields = { ...userFields };
-      fields.hash = await getHashForChatSign(fields.fields, privateKey);
-      const sessionsParams = {
-        accountName: chatAccount,
-        location: 'default',
-        storeHistoryLocally: true,
-        accountJSON: JSON.stringify(fields),
-        appVersion: AppConfig.version,
-        clearVisitorData: true,
-      };
-
-      await RNWebim.initSession(sessionsParams);
-      setInitState('INIT');
-    } catch (err: any) {
-      Alert.alert(
-        'Initialization session error',
-        err?.message + '\nCode: ' + err?.errorCode
-      );
-      setInitState('FAILED');
+      const history = await RNWebim.getNextMessages(MESSAGE_BATCH_SIZE);
+      setMessages((current) => mergeMessages(current, history, 'history'));
+      setHasMore(history.length > 0);
+    } finally {
+      loadingHistory.current = false;
+      setLoadingEarlier(false);
     }
-  }, [chatAccount, privateKey, userFields]);
+  }, [hasMore]);
+
+  const initSession = useCallback(
+    async (isActive: () => boolean) => {
+      try {
+        setInitState('PENDING');
+        const sessionsParams = {
+          accountName: chatAccount,
+          location: 'default',
+          storeHistoryLocally: true,
+          ...(userFields ? { accountJSON: JSON.stringify(userFields) } : {}),
+          appVersion: AppConfig.version,
+          clearVisitorData: false,
+        };
+
+        await openChatSession(sessionOwner, sessionsParams);
+        if (isActive()) setInitState('INIT');
+      } catch (err: any) {
+        if (isActive()) {
+          Alert.alert(
+            'Initialization session error',
+            err?.message + '\nCode: ' + err?.errorCode
+          );
+          setInitState('FAILED');
+        }
+        throw err;
+      }
+    },
+    [chatAccount, userFields, sessionOwner]
+  );
+
+  useEffect(() => {
+    let active = true;
+    const subscriptions = [
+      RNWebim.addErrorListener((error) => {
+        Alert.alert(
+          error.errorType,
+          error.message + '\nError Code: ' + error.errorCode
+        );
+      }),
+      RNWebim.addTypingListener((value) => setTyping(value.isTyping)),
+      RNWebim.addNewMessageListener((message) =>
+        setMessages((current) => mergeMessages(current, [message], 'event'))
+      ),
+      RNWebim.addEditMessageListener(({ from, to }) =>
+        setMessages((current) => replaceMessage(current, from, to))
+      ),
+      RNWebim.addRemoveMessageListener((message) =>
+        setMessages((current) => removeMessage(current, message))
+      ),
+      RNWebim.addDialogClearedListener(() => setMessages([])),
+      RNWebim.addUnreadCountListener(setUnread),
+    ];
+
+    const bootstrap = async () => {
+      try {
+        await initSession(() => active);
+        if (!active) return;
+        await loadLastMessages(() => active);
+      } catch (error) {
+        if (active) setInitState('FAILED');
+      }
+    };
+    bootstrap();
+
+    return () => {
+      active = false;
+      subscriptions.forEach((subscription) => subscription.remove());
+      closeChatSession(sessionOwner).catch(console.error);
+    };
+  }, [initSession, loadLastMessages, sessionOwner]);
 
   const onSend = useCallback(async (text: string) => {
     await RNWebim.send(text);
@@ -117,7 +128,7 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
           user={{
             avatar: 'https://i.pravatar.cc/300',
             _id: 'custom_id',
-            name: userFields.fields.display_name,
+            name: userFields?.fields.display_name || 'Visitor',
           }}
           showUserAvatar={true}
           scrollToBottom={true}
@@ -125,12 +136,11 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
           messages={messages}
           isTyping={isTyping}
           // infiniteScroll={true}
-          loadEarlier={true}
+          loadEarlier={hasMore}
+          isLoadingEarlier={loadingEarlier}
           onLoadEarlier={loadNextMessages}
           onSend={(data) => {
-            setMessages((prev) => GiftedChat.append(prev, data));
-            // @ts-ignore
-            onSend(data[0].text);
+            if (data[0]?.text) onSend(data[0].text);
           }}
           inverted={true}
         />

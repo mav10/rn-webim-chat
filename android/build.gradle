@@ -130,7 +130,7 @@ repositories {
 dependencies {
     //noinspection GradleDynamicVersion
   implementation "com.facebook.react:react-native:${safeExtGet('reactNativeVersion', '+')}"
-  implementation 'ru.webim.sdk:webimclientsdkandroid:3.39.3'
+  implementation 'ru.webim.sdk:webimclientsdkandroid:4.1.4'
   // From node_modules
 }
 
