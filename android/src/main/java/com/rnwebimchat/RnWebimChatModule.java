@@ -457,12 +457,18 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
           }
         });
       } else {
+        if (file != null) {
+          file.delete();
+        }
         WritableMap errorBody = getErrorMap(MessageStream.SendFileCallback.SendFileError.FILE_NOT_FOUND.name(),
           "File is not provided",
           true);
         failureCb.invoke(errorBody);
       }
     } catch (Exception e) {
+      if (file != null) {
+        file.delete();
+      }
       WritableMap errorBody = getErrorMap(FatalErrorType.UNKNOWN.name(),
         e.getLocalizedMessage(),
         true);

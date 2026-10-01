@@ -25,6 +25,7 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
   >(null);
   const [isTyping, setTyping] = useState<boolean>(false);
   const [unread, setUnread] = useState<number>(0);
+  const [isUploadingAttachment, setUploadingAttachment] = useState(false);
 
   const [webimMessages, setMessages] = useState<WebimMessage[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -127,6 +128,27 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
     await RNWebim.send(text);
   }, []);
 
+  const onAttachFile = useCallback(async () => {
+    if (isUploadingAttachment) return;
+    setUploadingAttachment(true);
+    try {
+      await RNWebim.tryAttachAndSendFile();
+    } catch (error) {
+      const webimError = error as { message?: string; errorCode?: string };
+      if (webimError.errorCode === 'ATTACHMENT_CANCELLED' ||
+          webimError.errorCode === 'SELECT_FILE_CANCELED') {
+        return;
+      }
+      const details = [
+        webimError.message,
+        webimError.errorCode ? `Code: ${webimError.errorCode}` : undefined,
+      ].filter(Boolean).join('\n');
+      Alert.alert('Attachment failed', details || 'The attachment could not be sent.');
+    } finally {
+      setUploadingAttachment(false);
+    }
+  }, [isUploadingAttachment]);
+
   if (initState === 'INIT') {
     return (
       <>
@@ -163,6 +185,26 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
               </Pressable>
             );
           }}
+          renderActions={() => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Attach file"
+              disabled={isUploadingAttachment}
+              onPress={onAttachFile}
+              style={{
+                width: 44,
+                height: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {isUploadingAttachment ? (
+                <ActivityIndicator size="small" />
+              ) : (
+                <Text style={{ fontSize: 26 }}>+</Text>
+              )}
+            </Pressable>
+          )}
           onSend={(data) => {
             if (data[0]?.text) onSend(data[0].text);
           }}

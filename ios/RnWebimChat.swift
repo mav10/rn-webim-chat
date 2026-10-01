@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 
 @objc(RnWebimChat)
-open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, FatalErrorHandler, NotFatalErrorHandler, SendFileCompletionHandler {
+open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, FatalErrorHandler, NotFatalErrorHandler {
     
     var chatSession: WebimSession?
     var messageStream: MessageStream!
@@ -15,19 +15,8 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     var resolveAttachCallback: RCTResponseSenderBlock?;
     var rejectAttachCallback: RCTResponseSenderBlock?;
 
-    var resolveSendingAttachCallback: RCTResponseSenderBlock?;
-    var rejectSendingAttachCallback: RCTResponseSenderBlock?;
-
-    // SendFileCompletionHandler - success callback
-    public func onSuccess(messageID: String) {
-        resolveSendingAttachCallback!([["id": messageID]])
-    }
-
-    // SendFileCompletionHandler - fail callback
-    public func onFailure(messageID: String, error: SendFileError) {
-        rejectSendingAttachCallback!([getErrorObject(errorCode: self.sendErrorToString(error: error),
-                                                     message: error.localizedDescription, isFatal: true)])
-    }
+    private let sendFileHandlersLock = NSLock()
+    private var sendFileHandlers: [UUID: WebimFileSendCompletionHandler] = [:]
 
 
     override init() {
@@ -371,18 +360,46 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
     @objc(sendFile:withName:withMime:withExtention:withRejecter:withResolver:)
     func sendFile(uri: String, name: String, mime: String, extention: String, reject: @escaping RCTResponseSenderBlock, resolve: @escaping RCTResponseSenderBlock) {
+        let operationID = UUID()
+        let completionHandler = WebimFileSendCompletionHandler(
+            onSuccess: { [weak self] messageID in
+                self?.releaseSendFileHandler(operationID)
+                resolve([["id": messageID]])
+            },
+            onFailure: { [weak self] _, error in
+                guard let self else { return }
+                self.releaseSendFileHandler(operationID)
+                reject([getErrorObject(errorCode: self.sendErrorToString(error: error),
+                                       message: error.localizedDescription, isFatal: true)])
+            }
+        )
+        self.retainSendFileHandler(completionHandler, for: operationID)
+
         do {
-            self.resolveSendingAttachCallback = resolve
-            self.rejectSendingAttachCallback = reject
             let imageData = try Data(contentsOf: URL(string: uri)!)
-            _ = try messageStream.send(file: imageData, filename: name, mimeType: mime, completionHandler: self)
+            _ = try messageStream.send(file: imageData, filename: name, mimeType: mime, completionHandler: completionHandler)
         } catch AccessError.invalidSession {
+            self.releaseSendFileHandler(operationID)
             reject([getErrorObject(errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)])
         } catch AccessError.invalidThread {
+            self.releaseSendFileHandler(operationID)
             reject([getErrorObject(errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)])
         } catch let error {
+            self.releaseSendFileHandler(operationID)
             reject([getErrorObject(errorCode: "UNKNOWN", message: "Can not send a message. Details: " + error.localizedDescription, isFatal: true)])
         }
+    }
+
+    private func retainSendFileHandler(_ handler: WebimFileSendCompletionHandler, for operationID: UUID) {
+        self.sendFileHandlersLock.lock()
+        defer { self.sendFileHandlersLock.unlock() }
+        self.sendFileHandlers[operationID] = handler
+    }
+
+    private func releaseSendFileHandler(_ operationID: UUID) {
+        self.sendFileHandlersLock.lock()
+        defer { self.sendFileHandlersLock.unlock() }
+        self.sendFileHandlers.removeValue(forKey: operationID)
     }
 
     @objc
@@ -638,6 +655,25 @@ class RateCompletionWrapper : RateOperatorCompletionHandler {
 
 public protocol ImagePickerDelegate: AnyObject {
     func didSelect(image: UIImage?)
+}
+
+private final class WebimFileSendCompletionHandler: SendFileCompletionHandler {
+    private let onSuccessCallback: (String) -> Void
+    private let onFailureCallback: (String, SendFileError) -> Void
+
+    init(onSuccess: @escaping (String) -> Void,
+         onFailure: @escaping (String, SendFileError) -> Void) {
+        self.onSuccessCallback = onSuccess
+        self.onFailureCallback = onFailure
+    }
+
+    func onSuccess(messageID: String) {
+        self.onSuccessCallback(messageID)
+    }
+
+    func onFailure(messageID: String, error: SendFileError) {
+        self.onFailureCallback(messageID, error)
+    }
 }
 
 extension RnWebimChat: UIImagePickerControllerDelegate {
