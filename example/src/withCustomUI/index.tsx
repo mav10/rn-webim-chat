@@ -124,28 +124,28 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
     return (
       <>
         <GiftedChat
-          wrapInSafeArea={true}
           user={{
             avatar: 'https://i.pravatar.cc/300',
             _id: 'custom_id',
             name: userFields?.fields.display_name || 'Visitor',
           }}
-          showUserAvatar={true}
-          scrollToBottom={true}
-          renderUsernameOnMessage={true}
+          isScrollToBottomEnabled={true}
+          isUsernameVisible={true}
           messages={messages}
           isTyping={isTyping}
           // infiniteScroll={true}
-          loadEarlier={hasMore}
-          isLoadingEarlier={loadingEarlier}
-          onLoadEarlier={loadNextMessages}
+          loadEarlierMessagesProps={{
+            isAvailable: hasMore,
+            isLoading: loadingEarlier,
+            onPress: loadNextMessages,
+          }}
           onSend={(data) => {
             if (data[0]?.text) onSend(data[0].text);
           }}
-          inverted={true}
+          isInverted={true}
         />
         {!!unread && (
-          <Text style={StyleSheet.absoluteFillObject}>{unread}</Text>
+          <Text style={StyleSheet.absoluteFill}>{unread}</Text>
         )}
       </>
     );

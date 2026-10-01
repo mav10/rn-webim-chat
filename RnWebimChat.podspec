@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
   s.authors      = package["author"]
 
   s.swift_version = '5.0'
-  s.platforms    = { :ios => "11.0" }
+  s.platforms    = { :ios => "15.1" }
   s.source       = { :git => "https://github.com/mav10/rn-webim-chat.git", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,swift}"

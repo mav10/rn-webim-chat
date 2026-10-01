@@ -42,7 +42,20 @@ const RnWebimChat = NativeModules.RnWebimChat
       }
     );
 
-const emitter = new NativeEventEmitter(RnWebimChat);
+type WebimNativeEventMap = {
+  [WebimEvents.NEW_MESSAGE]: Parameters<NewMessageListener>;
+  [WebimEvents.REMOVE_MESSAGE]: Parameters<RemoveMessageListener>;
+  [WebimEvents.EDIT_MESSAGE]: Parameters<UpdateMessageListener>;
+  [WebimEvents.CLEAR_DIALOG]: Parameters<DialogClearedListener>;
+  [WebimEvents.TOKEN_UPDATED]: Parameters<TokenUpdatedListener>;
+  [WebimEvents.ERROR]: Parameters<ErrorListener>;
+  [WebimEvents.STATE]: Parameters<StateListener>;
+  [WebimEvents.UNREAD_COUNTER]: Parameters<UnreadCountListener>;
+  [WebimEvents.TYPING]: Parameters<TypingListener>;
+  [WebimEvents.FILE_UPLOADING_PROGRESS]: Parameters<FileUploadingListener>;
+};
+
+const emitter = new NativeEventEmitter<WebimNativeEventMap>(RnWebimChat);
 
 const DEFAULT_MESSAGES_LIMIT = 100;
 
@@ -265,12 +278,15 @@ export class RNWebim {
     event: WebimEvents,
     listener: WebimEventListener
   ): WebimSubscription {
-    const subscription = emitter.addListener(event, listener);
+    const subscription = emitter.addListener(
+      event,
+      listener as (...args: WebimNativeEventMap[typeof event]) => void
+    );
     return new WebimSubscription(() => RNWebim.removeListener(subscription));
   }
 
   public static removeListener(listener: EmitterSubscription): void {
-    emitter.removeSubscription(listener);
+    listener.remove();
   }
 
   static removeAllListeners(event: WebimEvents) {
