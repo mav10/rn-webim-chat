@@ -194,12 +194,21 @@ export type WebimMessage = {
   status: 'SENT' | 'SENDING';
   read: boolean;
   canEdit: boolean;
-  carReply: boolean;
+  canReply: boolean;
   isEdited: boolean;
   canReact: boolean;
   canChangeReaction: boolean;
   visitorReaction?: string;
   stickerId?: number;
+  keyboard?: {
+    buttons: Array<Array<{ id: string; text: string }>>;
+    state: 'PENDING' | 'COMPLETED' | 'CANCELED' | 'CANCELLED';
+    response?: string;
+  };
+  keyboardRequest?: {
+    button?: { id: string; text: string };
+    messageId?: string;
+  };
   quote?: Quote;
   attachment?: WebimAttachment;
   operatorId?: string;
@@ -241,6 +250,30 @@ Note: method `getAllMessages` works strange on iOS, and sometimes returns empty 
 import RNWebim from 'rn-webim-chat';
 
 const messageId = await RNWebim.send(message);
+```
+
+### Reply to a message
+
+```typescript
+const accepted = await RNWebim.reply(message, messageToReplyTo);
+```
+
+The method returns whether the SDK accepted the reply for sending. The target must be present in the messages loaded by the native SDK tracker.
+
+### Send a sticker
+
+```typescript
+await RNWebim.sendSticker(stickerId);
+```
+
+Sticker IDs must be available to the Webim account, and sticker sending must be supported by the server.
+
+### Reply to a bot keyboard
+
+Active `KEYBOARD` messages expose their button rows in `message.keyboard`. Send the selected button ID with the keyboard message ID; this uses the SDK keyboard-response operation rather than sending the button label as ordinary text.
+
+```typescript
+await RNWebim.sendKeyboardResponse(keyboardMessage.id, button.id);
 ```
 
 ### Read Messages (mark as read)

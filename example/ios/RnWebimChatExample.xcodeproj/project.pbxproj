@@ -13,6 +13,7 @@
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		901A6D43C9CB56594EA415F8 /* libPods-RnWebimChatExample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C6E6BD4F580B22030A1A16F /* libPods-RnWebimChatExample.a */; };
 		AE345936295C133B00C0EFB2 /* File.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE345935295C133B00C0EFB2 /* File.swift */; };
+		C7B23A4E2D5F6A1B00C4D9E1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.swift */; };
 		FB5752E4E5C726E6D7B308BC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6220C41845527107F86EF684 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
@@ -415,6 +416,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C7B23A4E2D5F6A1B00C4D9E1 /* AppDelegate.swift in Sources */,
 				AE345936295C133B00C0EFB2 /* File.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -2,6 +2,46 @@ import WebimMobileSDK
 import Foundation
 import UniformTypeIdentifiers
 
+private final class RnWebimStickerCompletionHandler: NSObject, SendStickerCompletionHandler {
+    private let resolve: RCTPromiseResolveBlock
+    private let reject: RCTPromiseRejectBlock
+
+    init(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        self.resolve = resolve
+        self.reject = reject
+    }
+
+    func onSuccess() {
+        resolve(nil)
+    }
+
+    func onFailure(error: SendStickerError) {
+        switch error {
+        case .noChat:
+            reject("NO_CHAT", "There is no active chat for sending a sticker", error)
+        case .noStickerId:
+            reject("NO_STICKER_ID", "The sticker ID is invalid", error)
+        }
+    }
+}
+
+private final class RnWebimKeyboardCompletionHandler: NSObject, SendKeyboardRequestCompletionHandler {
+    private let resolve: RCTPromiseResolveBlock
+    private let reject: RCTPromiseRejectBlock
+
+    init(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        self.resolve = resolve
+        self.reject = reject
+    }
+
+    func onSuccess(messageID: String) {
+        resolve(messageID)
+    }
+
+    func onFailure(messageID: String, error: KeyboardResponseError) {
+        reject("KEYBOARD_RESPONSE_FAILED", String(describing: error), error)
+    }
+}
 
 @objc(RnWebimChat)
 open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, FatalErrorHandler, NotFatalErrorHandler {
@@ -9,6 +49,8 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     var chatSession: WebimSession?
     var messageStream: MessageStream!
     var messageTracker: MessageTracker?
+    private let messagesLock = NSLock()
+    private var messagesByID: [String: Message] = [:]
 
     private var pickerController: UIImagePickerController;
     private weak var delegate: ImagePickerDelegate?;
@@ -213,6 +255,9 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         }
 
         messageStream = nil
+        messagesLock.lock()
+        messagesByID.removeAll()
+        messagesLock.unlock()
 
         resolve(nil)
     }
@@ -290,6 +335,82 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
         } catch let error {
             handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not send a message. Details: " + error.localizedDescription, isFatal: true)
+        }
+    }
+
+    @objc(reply:withReplyToId:withResolver:withRejecter:)
+    func reply(message: String, replyToId: String, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
+        messagesLock.lock()
+        let repliedMessage = messagesByID[replyToId]
+        messagesLock.unlock()
+
+        guard let repliedMessage else {
+            handleError(rejecter: reject, errorCode: "MESSAGE_NOT_FOUND", message: "Reply target is not in the loaded message history", isFatal: false)
+            return
+        }
+
+        do {
+            let messageID = try messageStream.reply(message: message, repliedMessage: repliedMessage)
+            resolve(messageID != nil)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destroyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not reply to a message. Details: " + error.localizedDescription, isFatal: false)
+        }
+    }
+
+    @objc(sendSticker:withResolver:withRejecter:)
+    func sendSticker(stickerID: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard let messageStream = messageStream else {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Can not send a sticker without an active session", isFatal: true)
+            return
+        }
+
+        let completionHandler = RnWebimStickerCompletionHandler(resolve: resolve, reject: reject)
+        do {
+            try messageStream.sendSticker(withId: stickerID.intValue, completionHandler: completionHandler)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destroyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not send a sticker. Details: " + error.localizedDescription, isFatal: false)
+        }
+    }
+
+    @objc(sendKeyboardResponse:withButtonId:withResolver:withRejecter:)
+    func sendKeyboardResponse(messageID: String, buttonID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        messagesLock.lock()
+        let message = messagesByID[messageID]
+        messagesLock.unlock()
+
+        guard let message else {
+            handleError(rejecter: reject, errorCode: "MESSAGE_NOT_FOUND", message: "Keyboard message is not in the loaded message history", isFatal: false)
+            return
+        }
+        guard let currentChatID = message.getCurrentChatID() else {
+            handleError(rejecter: reject, errorCode: "KEYBOARD_MESSAGE_ID_MISSING", message: "Keyboard message has no current chat ID", isFatal: false)
+            return
+        }
+        guard let messageStream = messageStream else {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Can not send a keyboard response without an active session", isFatal: true)
+            return
+        }
+
+        do {
+            try messageStream.sendKeyboardRequest(
+                buttonID: buttonID,
+                messageCurrentChatID: currentChatID,
+                completionHandler: RnWebimKeyboardCompletionHandler(resolve: resolve, reject: reject)
+            )
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destroyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            handleError(rejecter: reject, errorCode: "KEYBOARD_RESPONSE_FAILED", message: error.localizedDescription, isFatal: false)
         }
     }
 
@@ -423,15 +544,24 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     }
 
     public func removed(message: Message) {
-        self.sendEvent(withName: "removeMessage", body: self.messageToJson(message: message))
+        let payload = self.messageToJson(message: message)
+        messagesLock.lock()
+        messagesByID.removeValue(forKey: message.getID())
+        messagesLock.unlock()
+        self.sendEvent(withName: "removeMessage", body: payload)
     }
 
     public func removedAllMessages() {
+        messagesLock.lock()
+        messagesByID.removeAll()
+        messagesLock.unlock()
         self.sendEvent(withName: "allMessagesRemoved", body: [])
     }
 
     public func changed(message oldVersion: Message, to newVersion: Message) {
-        self.sendEvent(withName: "changedMessage", body: ["from": self.messageToJson(message: oldVersion), "to": self.messageToJson(message: newVersion)])
+        let oldPayload = self.messageToJson(message: oldVersion)
+        let newPayload = self.messageToJson(message: newVersion)
+        self.sendEvent(withName: "changedMessage", body: ["from": oldPayload, "to": newPayload])
     }
 
     public func onOperatorTypingStateChanged(isTyping: Bool) {
@@ -467,6 +597,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
     // Mapping section
     func messageToJson(message: Message) -> [String: Any?] {
+        messagesLock.lock()
+        messagesByID[message.getID()] = message
+        messagesLock.unlock()
+
+        let keyboard = message.getKeyboard()
+        let keyboardRequest = message.getKeyboardRequest()
         let result = [
             "id": message.getID(),
             "serverSideId": message.getServerSideID(),
@@ -485,6 +621,8 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             "canChangeReaction": message.canVisitorChangeReaction(),
             "visitorReaction": message.getVisitorReaction(),
             "stickerId": message.getSticker()?.getStickerId(),
+            "keyboard": keyboard != nil ? self.keyboardToDictionary(keyboard: keyboard!) : nil,
+            "keyboardRequest": keyboardRequest != nil ? self.keyboardRequestToDictionary(request: keyboardRequest!) : nil,
 
             "operatorId": message.getOperatorID(),
             "quote": message.getQuote() != nil ? self.quetoToDictionary(quote: message.getQuote()!) : nil,
@@ -492,6 +630,34 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         ] as [String : Any?]
 
         return result
+    }
+
+    func keyboardToDictionary(keyboard: Keyboard) -> [String: Any?] {
+        let buttons = keyboard.getButtons().map { row in
+            row.map { ["id": $0.getID(), "text": $0.getText()] as [String: Any?] }
+        }
+        let state: String
+        switch keyboard.getState() {
+        case .pending:
+            state = "PENDING"
+        case .completed:
+            state = "COMPLETED"
+        case .canceled:
+            state = "CANCELED"
+        }
+        return [
+            "buttons": buttons,
+            "state": state,
+            "response": keyboard.getResponse()?.getButtonID(),
+        ]
+    }
+
+    func keyboardRequestToDictionary(request: KeyboardRequest) -> [String: Any?] {
+        let button = request.getButton()
+        return [
+            "button": ["id": button.getID(), "text": button.getText()],
+            "messageId": request.getMessageID(),
+        ]
     }
 
     func typeToString(messageType: MessageType) -> String {
@@ -560,7 +726,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     func attachmentToJson(attachment: MessageAttachment?) -> [String: Any?]  {
         return [
             "contentType": attachment?.getFileInfo().getContentType(),
-            "info": attachment?.getFileInfo().getImageInfo()?.getThumbURL().absoluteString,
+            "info": attachment?.getFileInfo().getImageInfo()?.getThumbURL()?.absoluteString,
             "name": attachment?.getFileInfo().getFileName(),
             "size": attachment?.getFileInfo().getSize(),
             "url": attachment?.getFileInfo().getURL()?.absoluteString
@@ -571,6 +737,8 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         switch error {
         case .accountBlocked:
             return "ACCOUNT_BLOCKED"
+        case .initializationFailed:
+            return "INITIALIZATION_FAILED"
         case .providedVisitorFieldsExpired:
             return "PROVIDED_VISITOR_EXPIRED"
         case .unknown:
@@ -586,6 +754,12 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         switch error {
         case .fileSizeExceeded:
             return "FILE_SIZE_EXCEEDED"
+        case .uploadCanceled:
+            return "UPLOAD_CANCELED"
+        case .maliciousFileDetected:
+            return "MALICIOUS_FILE_DETECTED"
+        case .uploadNotAllowed:
+            return "UPLOAD_NOT_ALLOWED"
         case .unknown:
             return "UNKNOWN"
         case .fileSizeTooSmall:
@@ -636,6 +810,18 @@ class RateCompletionWrapper : RateOperatorCompletionHandler {
         switch error {
         case .noChat:
             code = "NO_CHAT"
+            break
+        case .rateDisabled:
+            code = "RATE_DISABLED"
+            break
+        case .operatorNotInChat:
+            code = "OPERATOR_NOT_IN_CHAT"
+            break
+        case .rateValueIncorrect:
+            code = "RATE_VALUE_INCORRECT"
+            break
+        case .unknown:
+            code = "UNKNOWN"
             break
         case .noteIsTooLong:
             code = "NOTE_IS_TOO_LONG"

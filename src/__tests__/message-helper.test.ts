@@ -11,7 +11,7 @@ const makeMessage = (contentType: string): WebimMessage => ({
   status: 'SENT',
   read: true,
   canEdit: false,
-  carReply: false,
+  canReply: false,
   isEdited: false,
   canReact: false,
   canChangeReaction: false,
@@ -30,6 +30,7 @@ describe('mapWebimToChatMessage attachments', () => {
 
     expect(mapped.video).toBe('https://example.test/attachment');
     expect(mapped.image).toBeUndefined();
+    expect(mapped.attachmentUrl).toBeUndefined();
     expect(mapped.text).toBe('');
   });
 
@@ -38,6 +39,7 @@ describe('mapWebimToChatMessage attachments', () => {
 
     expect(mapped.image).toBe('https://example.test/attachment');
     expect(mapped.video).toBeUndefined();
+    expect(mapped.attachmentUrl).toBeUndefined();
   });
 
   it('keeps other file attachments as named text messages', () => {
@@ -46,5 +48,59 @@ describe('mapWebimToChatMessage attachments', () => {
     expect(mapped.text).toBe('attachment');
     expect(mapped.image).toBeUndefined();
     expect(mapped.video).toBeUndefined();
+    expect(mapped.attachmentUrl).toBe('https://example.test/attachment');
+  });
+});
+
+describe('mapWebimToChatMessage keyboards', () => {
+  it('maps active keyboard button rows to radio quick replies', () => {
+    const message = {
+      ...makeMessage('text/plain'),
+      type: 'KEYBOARD',
+      attachment: undefined,
+      text: 'Choose an option',
+      keyboard: {
+        buttons: [
+          [
+            { id: 'option-1', text: 'First option' },
+            { id: 'option-2', text: 'Second option' },
+          ],
+        ],
+        state: 'PENDING',
+      },
+    } as WebimMessage;
+
+    const mapped = mapWebimToChatMessage(message);
+
+    expect(mapped.quickReplies).toEqual({
+      type: 'radio',
+      values: [
+        { title: 'First option', value: 'option-1' },
+        { title: 'Second option', value: 'option-2' },
+      ],
+      keepIt: false,
+    });
+  });
+
+  it('does not create quick replies from quotes or inactive keyboards', () => {
+    const message = {
+      ...makeMessage('text/plain'),
+      type: 'KEYBOARD',
+      attachment: undefined,
+      keyboard: {
+        buttons: [[{ id: 'option-1', text: 'First option' }]],
+        state: 'COMPLETED',
+      },
+      quote: {
+        senderName: 'Operator',
+        messageId: 'quoted-message',
+        messageText: 'Quoted text',
+        messageType: 'OPERATOR',
+        state: 'FILLED',
+        timestamp: 1,
+      },
+    } as WebimMessage;
+
+    expect(mapWebimToChatMessage(message).quickReplies).toBeUndefined();
   });
 });

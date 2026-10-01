@@ -35,6 +35,22 @@ export interface WebimAttachment {
   url: string;
 }
 
+export interface WebimKeyboardButton {
+  id: string;
+  text: string;
+}
+
+export interface WebimKeyboard {
+  buttons: WebimKeyboardButton[][];
+  state: 'PENDING' | 'COMPLETED' | 'CANCELED' | 'CANCELLED' | string;
+  response?: string;
+}
+
+export interface WebimKeyboardRequest {
+  button?: WebimKeyboardButton;
+  messageId?: string;
+}
+
 type MessageTypeAlias =
   | 'OPERATOR'
   | 'VISITOR'
@@ -58,12 +74,14 @@ export type WebimMessage = {
   status: 'SENT' | 'SENDING';
   read: boolean;
   canEdit: boolean;
-  carReply: boolean;
+  canReply: boolean;
   isEdited: boolean;
   canReact: boolean;
   canChangeReaction: boolean;
   visitorReaction?: string;
   stickerId?: number;
+  keyboard?: WebimKeyboard;
+  keyboardRequest?: WebimKeyboardRequest;
   quote?: Quote;
   attachment?: WebimAttachment;
   operatorId?: string;

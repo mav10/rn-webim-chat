@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import ru.webim.android.sdk.FatalErrorHandler;
 import ru.webim.android.sdk.Message;
@@ -42,6 +43,7 @@ import ru.webim.android.sdk.MessageTracker;
 import ru.webim.android.sdk.NotFatalErrorHandler;
 import ru.webim.android.sdk.Operator;
 import ru.webim.android.sdk.ProvidedAuthorizationTokenStateListener;
+import ru.webim.android.sdk.SendStickerCallback;
 import ru.webim.android.sdk.Webim;
 import ru.webim.android.sdk.WebimError;
 import ru.webim.android.sdk.WebimSession;
@@ -58,6 +60,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   private Callback fileCbFailure;
   private MessageTracker tracker;
   private WebimSession session;
+  private final Map<String, Message> messagesById = new ConcurrentHashMap<>();
 
 
   public RnWebimChatModule(ReactApplicationContext context) {
@@ -245,6 +248,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
         }
         session = null;
       }
+      messagesById.clear();
       promise.resolve(Arguments.createMap());
     } catch (Exception e) {
       handleError(promise, FatalErrorType.UNKNOWN.name(), "Destroy session failed", false, e);
@@ -322,6 +326,74 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
         e.getLocalizedMessage(),
         true,
         e);
+    }
+  }
+
+  @ReactMethod
+  public void reply(String message, String replyToId, final Promise promise) {
+    Message replyTo = messagesById.get(replyToId);
+    if (replyTo == null) {
+      handleError(promise, "MESSAGE_NOT_FOUND", "Reply target is not in the loaded message history", false, null);
+      return;
+    }
+
+    try {
+      boolean accepted = session.getStream().replyMessage(message, replyTo);
+      promise.resolve(accepted);
+    } catch (NullPointerException e) {
+      handleError(promise, "NULL_SESSION", "Can not reply as session or stream is destroyed", true, e);
+    } catch (IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (Exception e) {
+      handleError(promise, FatalErrorType.UNKNOWN.name(), e.getLocalizedMessage(), false, e);
+    }
+  }
+
+  @ReactMethod
+  public void sendSticker(int stickerId, final Promise promise) {
+    try {
+      session.getStream().sendSticker(stickerId, new SendStickerCallback() {
+        @Override
+        public void onSuccess() {
+          promise.resolve(null);
+        }
+
+        @Override
+        public void onFailure(WebimError error) {
+          handleError(promise, error.getErrorType().toString(), error.getErrorString(), false, null);
+        }
+      });
+    } catch (NullPointerException e) {
+      handleError(promise, "NULL_SESSION", "Can not send a sticker as session or stream is destroyed", true, e);
+    } catch (IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    }
+  }
+
+  @ReactMethod
+  public void sendKeyboardResponse(String messageId, String buttonId, final Promise promise) {
+    try {
+      session.getStream().sendKeyboardRequest(messageId, buttonId, new MessageStream.SendKeyboardCallback() {
+        @Override
+        public void onSuccess(Message.Id id) {
+          promise.resolve(id.toString());
+        }
+
+        @Override
+        public void onFailure(Message.Id id, WebimError<MessageStream.SendKeyboardCallback.SendKeyboardError> error) {
+          handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
+        }
+      });
+    } catch (NullPointerException e) {
+      handleError(promise, "NULL_SESSION", "Can not send a keyboard response as session or stream is destroyed", true, e);
+    } catch (IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
     }
   }
 
@@ -512,11 +584,14 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   @Override
   public void messageRemoved(@NonNull Message message) {
-    emitDeviceEvent("removeMessage", messageToJson(message));
+    WritableMap payload = messageToJson(message);
+    messagesById.remove(message.getClientSideId().toString());
+    emitDeviceEvent("removeMessage", payload);
   }
 
   @Override
   public void allMessagesRemoved() {
+    messagesById.clear();
     final WritableMap map = Arguments.createMap();
     emitDeviceEvent("allMessagesRemoved", map);
   }
@@ -524,8 +599,8 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   @Override
   public void messageChanged(@NonNull Message from, @NonNull Message to) {
     final WritableMap map = Arguments.createMap();
-    map.putMap("to", messageToJson(to));
     map.putMap("from", messageToJson(from));
+    map.putMap("to", messageToJson(to));
     emitDeviceEvent("changedMessage", map);
   }
 
@@ -583,6 +658,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   }
 
   private WritableMap messageToJson(Message msg) {
+    messagesById.put(msg.getClientSideId().toString(), msg);
     final WritableMap map = Arguments.createMap();
     map.putString("id", msg.getClientSideId().toString());
     map.putString("serverSideId", msg.getServerSideId());
@@ -604,6 +680,40 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     }
     if (msg.getSticker() != null) {
       map.putInt("stickerId", msg.getSticker().getStickerId());
+    }
+    Message.Keyboard keyboard = msg.getKeyboard();
+    if (keyboard != null) {
+      WritableArray rows = Arguments.createArray();
+      for (List<Message.KeyboardButton> keyboardRow : keyboard.getButtons()) {
+        WritableArray row = Arguments.createArray();
+        for (Message.KeyboardButton button : keyboardRow) {
+          WritableMap item = Arguments.createMap();
+          item.putString("id", button.getId());
+          item.putString("text", button.getText());
+          row.pushMap(item);
+        }
+        rows.pushArray(row);
+      }
+      WritableMap keyboardMap = Arguments.createMap();
+      keyboardMap.putArray("buttons", rows);
+      keyboardMap.putString("state", keyboard.getState().name());
+      if (keyboard.getKeyboardResponse() != null) {
+        keyboardMap.putString("response", keyboard.getKeyboardResponse().getButtonId());
+      }
+      map.putMap("keyboard", keyboardMap);
+    }
+    Message.KeyboardRequest keyboardRequest = msg.getKeyboardRequest();
+    if (keyboardRequest != null) {
+      WritableMap request = Arguments.createMap();
+      Message.KeyboardButton button = keyboardRequest.getButtons();
+      if (button != null) {
+        WritableMap buttonMap = Arguments.createMap();
+        buttonMap.putString("id", button.getId());
+        buttonMap.putString("text", button.getText());
+        request.putMap("button", buttonMap);
+      }
+      request.putString("messageId", keyboardRequest.getMessageId());
+      map.putMap("keyboardRequest", request);
     }
     if (msg.getOperatorId() != null) {
       map.putString("operatorId", msg.getOperatorId().toString());

@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatContainerBaseProps } from '../chat-container';
-import { GiftedChat, IChatMessage } from 'react-native-gifted-chat';
+import {
+  GiftedChat,
+  IChatMessage,
+  MessageText,
+  Reply,
+} from 'react-native-gifted-chat';
 import RNWebim, { WebimMessage } from 'rn-webim-chat';
 import * as AppConfig from '../../package.json';
 import {
@@ -26,6 +31,7 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
   const [isTyping, setTyping] = useState<boolean>(false);
   const [unread, setUnread] = useState<number>(0);
   const [isUploadingAttachment, setUploadingAttachment] = useState(false);
+  const uploadingAttachmentRef = useRef(false);
 
   const [webimMessages, setMessages] = useState<WebimMessage[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -128,26 +134,56 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
     await RNWebim.send(text);
   }, []);
 
+  const onQuickReply = useCallback((replies: Reply[]) => {
+    const reply = replies[0];
+    if (!reply?.messageId || typeof reply.value !== 'string') return;
+    RNWebim.sendKeyboardResponse(String(reply.messageId), reply.value).catch((error) => {
+      const webimError = error as { message?: string };
+      Alert.alert(
+        'Unable to send response',
+        webimError.message || 'The keyboard response could not be sent.'
+      );
+    });
+  }, []);
+
   const onAttachFile = useCallback(async () => {
-    if (isUploadingAttachment) return;
+    if (uploadingAttachmentRef.current) return;
+    uploadingAttachmentRef.current = true;
     setUploadingAttachment(true);
     try {
       await RNWebim.tryAttachAndSendFile();
     } catch (error) {
       const webimError = error as { message?: string; errorCode?: string };
-      if (webimError.errorCode === 'ATTACHMENT_CANCELLED' ||
-          webimError.errorCode === 'SELECT_FILE_CANCELED') {
+      if (
+        webimError.errorCode === 'ATTACHMENT_CANCELLED' ||
+        webimError.errorCode === 'SELECT_FILE_CANCELED'
+      ) {
         return;
       }
       const details = [
         webimError.message,
         webimError.errorCode ? `Code: ${webimError.errorCode}` : undefined,
-      ].filter(Boolean).join('\n');
-      Alert.alert('Attachment failed', details || 'The attachment could not be sent.');
+      ]
+        .filter(Boolean)
+        .join('\n');
+      Alert.alert(
+        'Attachment failed',
+        details || 'The attachment could not be sent.'
+      );
     } finally {
+      uploadingAttachmentRef.current = false;
       setUploadingAttachment(false);
     }
-  }, [isUploadingAttachment]);
+  }, []);
+
+  const openAttachment = useCallback((url: string) => {
+    Linking.openURL(url).catch(() =>
+      Alert.alert(
+        'Unable to open attachment',
+        'The attachment link could not be opened.'
+      )
+    );
+  }, []);
 
   if (initState === 'INIT') {
     return (
@@ -162,6 +198,7 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
           isUsernameVisible={true}
           messages={messages}
           isTyping={isTyping}
+          onQuickReply={onQuickReply}
           // infiniteScroll={true}
           loadEarlierMessagesProps={{
             isAvailable: hasMore,
@@ -174,14 +211,34 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
             return (
               <Pressable
                 accessibilityRole="button"
-                onPress={() =>
-                  Linking.openURL(videoUrl).catch(() =>
-                    Alert.alert('Unable to open video', 'The attachment link could not be opened.')
-                  )
-                }
+                onPress={() => openAttachment(videoUrl)}
                 style={{ padding: 10 }}
               >
                 <Text>Open video attachment</Text>
+              </Pressable>
+            );
+          }}
+          renderMessageText={(textProps) => {
+            const attachmentUrl = (
+              textProps.currentMessage as IChatMessage & {
+                attachmentUrl?: string;
+              }
+            ).attachmentUrl;
+            if (!attachmentUrl) return <MessageText {...textProps} />;
+            return (
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => openAttachment(attachmentUrl)}
+                style={{ paddingVertical: 4 }}
+              >
+                <Text
+                  style={[
+                    textProps.textStyle?.[textProps.position ?? 'left'],
+                    { textDecorationLine: 'underline' },
+                  ]}
+                >
+                  {textProps.currentMessage.text}
+                </Text>
               </Pressable>
             );
           }}

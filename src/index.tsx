@@ -124,6 +124,27 @@ export class RNWebim {
       });
   }
 
+  static reply(message: string, replyTo: WebimMessage): Promise<boolean> {
+    return RnWebimChat.reply(message, replyTo.id)
+      .catch(webimErrorHandler)
+      .then((accepted: boolean) => accepted);
+  }
+
+  static sendSticker(stickerId: number): Promise<void> {
+    return RnWebimChat.sendSticker(stickerId)
+      .catch(webimErrorHandler)
+      .then(() => undefined);
+  }
+
+  static sendKeyboardResponse(
+    messageId: string,
+    buttonId: string
+  ): Promise<string> {
+    return RnWebimChat.sendKeyboardResponse(messageId, buttonId)
+      .catch(webimErrorHandler)
+      .then((responseMessageId: string) => responseMessageId);
+  }
+
   static readMessages(): Promise<void> {
     return RnWebimChat.readMessages()
       .catch(webimErrorHandler)

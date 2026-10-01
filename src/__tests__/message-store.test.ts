@@ -15,7 +15,7 @@ const message = (id: string, time: number): WebimMessage => ({
   status: 'SENDING',
   read: false,
   canEdit: false,
-  carReply: false,
+  canReply: false,
   isEdited: false,
   canReact: false,
   canChangeReaction: false,
