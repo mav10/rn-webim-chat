@@ -1,0 +1,40 @@
+export type ChatAppearance = 'custom' | 'telegram' | 'pizza';
+
+export const chatThemes = {
+  custom: {
+    background: '#ffffff',
+    incoming: '#f0f0f0',
+    outgoing: '#0084ff',
+    text: '#2a2a2a',
+    outgoingText: '#ffffff',
+    accent: '#007f78',
+    secondary: '#837c77',
+    composerBorder: '#dddddd',
+    quoteBackground: '#e6f1ef',
+    radius: 16,
+  },
+  telegram: {
+    background: '#dce7df',
+    incoming: '#ffffff',
+    outgoing: '#e2ffc7',
+    text: '#17212b',
+    outgoingText: '#17212b',
+    accent: '#248bc4',
+    secondary: '#667b86',
+    composerBorder: '#e0e7eb',
+    quoteBackground: '#e7f0f3',
+    radius: 12,
+  },
+  pizza: {
+    background: '#ffffff',
+    incoming: '#f8f3e9',
+    outgoing: '#ffcc1b',
+    text: '#2a2a2a',
+    outgoingText: '#2a2a2a',
+    accent: '#2a2a2a',
+    secondary: '#837c77',
+    composerBorder: '#efe7de',
+    quoteBackground: '#fff6ce',
+    radius: 18,
+  },
+} as const;

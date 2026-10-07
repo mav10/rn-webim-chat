@@ -8,9 +8,17 @@ import {
   Send,
   IGiftedChatContext,
   useChatContext,
+  InputToolbar,
 } from 'react-native-gifted-chat';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { ThumbsUp, ThumbsDown } from 'lucide-react-native';
+import {
+  ThumbsUp,
+  ThumbsDown,
+  Paperclip,
+  ArrowUp,
+  SendHorizontal,
+  Check,
+} from 'lucide-react-native';
 import type { FlatList } from 'react-native-gesture-handler';
 import RNWebim, { WebimMessage } from 'rn-webim-chat';
 import * as AppConfig from '../../package.json';
@@ -18,6 +26,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Image,
   Linking,
   Pressable,
   StyleSheet,
@@ -29,6 +38,8 @@ import { ComposerAction, submitChatText } from './message-actions';
 import { mergeMessages, removeMessage, replaceMessage } from './message-store';
 import { closeChatSession, openChatSession } from '../services/chat-service';
 import { findQuotedMessageIndex } from './quote-navigation';
+import { ChatAppearance, chatThemes } from './chat-themes';
+import { pizzaAssets } from '../pizza/assets';
 import {
   getMessageLinkMatchers,
   isSupportedMessageLink,
@@ -114,8 +125,14 @@ const QuoteBubble = ({
   );
 };
 
-export const CustomChat = (props: ChatContainerBaseProps) => {
+export const CustomChat = (
+  props: ChatContainerBaseProps & { appearance?: ChatAppearance }
+) => {
   const { chatAccount, userFields } = props;
+  const appearance = props.appearance ?? 'custom';
+  const theme = chatThemes[appearance];
+  const themed = appearance !== 'custom';
+  const SendIcon = appearance === 'pizza' ? ArrowUp : SendHorizontal;
   const sessionOwner = useRef({}).current;
   const [initState, setInitState] = useState<
     'INIT' | 'PENDING' | 'FAILED' | null
@@ -148,7 +165,12 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const scrollRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const messages = webimMessages.map(mapWebimToChatMessage);
+  const messages = webimMessages.map((message) => {
+    const mapped = mapWebimToChatMessage(message);
+    return appearance === 'pizza'
+      ? { ...mapped, user: { ...mapped.user, avatar: undefined } }
+      : mapped;
+  });
   const selectedMessage = webimMessages.find(
     (message) => message.id === composerAction?.messageId
   );
@@ -498,13 +520,103 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
     return (
       <>
         <GiftedChat<ChatMessage>
+          colorScheme="light"
+          keyboardAvoidingViewProps={
+            themed
+              ? { automaticOffset: true, keyboardVerticalOffset: 0 }
+              : undefined
+          }
+          messagesContainerStyle={{ backgroundColor: theme.background }}
           user={{
             avatar: 'https://i.pravatar.cc/300',
             _id: 'custom_id',
             name: userFields?.fields.display_name || 'Visitor',
           }}
           isScrollToBottomEnabled={true}
-          isUsernameVisible={true}
+          isUsernameVisible={!themed}
+          isUserAvatarVisible={appearance === 'pizza'}
+          isAvatarVisibleForEveryMessage={appearance === 'pizza'}
+          renderAvatar={
+            appearance === 'telegram'
+              ? null
+              : appearance === 'pizza'
+              ? ({ position }) => (
+                  <View style={styles.pizzaAvatarBox}>
+                    <Image
+                      source={
+                        position === 'right'
+                          ? pizzaAssets.visitor
+                          : pizzaAssets.operator
+                      }
+                      style={
+                        position === 'right'
+                          ? styles.pizzaVisitor
+                          : styles.pizzaOperator
+                      }
+                      resizeMode="contain"
+                    />
+                  </View>
+                )
+              : undefined
+          }
+          timeFormat={themed ? 'HH:mm' : undefined}
+          imageStyle={
+            appearance === 'pizza' ? styles.pizzaMessageImage : undefined
+          }
+          renderSystemMessage={
+            themed
+              ? ({ currentMessage }) => (
+                  <Text
+                    style={[
+                      styles.themedSystemMessage,
+                      { color: theme.secondary },
+                    ]}
+                  >
+                    {currentMessage.text}
+                  </Text>
+                )
+              : undefined
+          }
+          renderDay={
+            themed
+              ? ({ createdAt }) => (
+                  <Text style={[styles.themedDay, { color: theme.secondary }]}>
+                    {new Date(createdAt).toLocaleDateString('ru-RU', {
+                      day: 'numeric',
+                      month: 'long',
+                    })}
+                  </Text>
+                )
+              : undefined
+          }
+          timeTextStyle={
+            themed
+              ? {
+                  left: {
+                    color: theme.secondary,
+                    fontSize: appearance === 'pizza' ? 10 : 11,
+                  },
+                  right: {
+                    color: theme.secondary,
+                    fontSize: appearance === 'pizza' ? 10 : 11,
+                  },
+                }
+              : undefined
+          }
+          renderInputToolbar={
+            themed
+              ? (toolbarProps) => (
+                  <InputToolbar
+                    {...toolbarProps}
+                    containerStyle={[
+                      styles.themedToolbar,
+                      { borderColor: theme.composerBorder },
+                    ]}
+                    primaryStyle={styles.themedToolbarPrimary}
+                  />
+                )
+              : undefined
+          }
           messages={messages}
           messagesContainerRef={messagesContainerRef}
           listProps={{
@@ -534,19 +646,60 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
           }}
           renderBubble={(bubbleProps) => (
             <QuoteBubble
-              bubbleProps={bubbleProps}
+              bubbleProps={{
+                ...bubbleProps,
+                wrapperStyle: {
+                  left: {
+                    backgroundColor: theme.incoming,
+                    borderRadius: theme.radius,
+                  },
+                  right: {
+                    backgroundColor: theme.outgoing,
+                    borderRadius: theme.radius,
+                  },
+                },
+                textStyle: {
+                  left: {
+                    color: theme.text,
+                    fontSize: appearance === 'pizza' ? 14 : 16,
+                  },
+                  right: {
+                    color: theme.outgoingText,
+                    fontSize: appearance === 'pizza' ? 14 : 16,
+                  },
+                },
+                tickStyle: { color: theme.secondary },
+              }}
               highlighted={bubbleProps.currentMessage._id === highlightedId}
             />
           )}
           text={draft}
-          textInputProps={{ onChangeText: setDraft, editable: !isSubmitting }}
+          textInputProps={{
+            onChangeText: setDraft,
+            editable: !isSubmitting,
+            placeholder:
+              appearance === 'pizza'
+                ? 'Спрашивай всё что угодно'
+                : themed
+                ? 'Сообщение'
+                : 'Type a message...',
+            placeholderTextColor: theme.secondary,
+            style: themed
+              ? {
+                  color: theme.text,
+                  fontSize: appearance === 'pizza' ? 14 : 16,
+                  maxHeight: 120,
+                }
+              : undefined,
+          }}
           onLongPressMessage={onLongPressMessage}
           renderSend={(sendProps) => (
             <Send
               {...sendProps}
+              isSendButtonAlwaysVisible={themed}
               label={composerAction?.kind === 'edit' ? 'Save' : 'Send'}
               sendButtonProps={{
-                enabled: !isSubmitting,
+                enabled: !isSubmitting && !!draft.trim(),
                 accessibilityLabel:
                   composerAction?.kind === 'edit'
                     ? 'Save edit'
@@ -556,15 +709,53 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
                 onSend();
               }}
             >
-              {isSubmitting ? <ActivityIndicator /> : undefined}
+              {isSubmitting ? (
+                <ActivityIndicator />
+              ) : themed ? (
+                <View
+                  style={[
+                    styles.iconSend,
+                    {
+                      backgroundColor:
+                        appearance === 'pizza' ? theme.outgoing : theme.accent,
+                    },
+                    !draft.trim() && styles.sendDisabled,
+                  ]}
+                >
+                  {composerAction?.kind === 'edit' ? (
+                    <Check
+                      size={20}
+                      color={appearance === 'pizza' ? theme.text : '#ffffff'}
+                    />
+                  ) : (
+                    <SendIcon
+                      size={20}
+                      color={appearance === 'pizza' ? theme.text : '#ffffff'}
+                    />
+                  )}
+                </View>
+              ) : undefined}
             </Send>
           )}
           renderAccessory={
             composerAction
               ? () => (
-                  <View style={styles.composerMode}>
+                  <View
+                    style={[
+                      styles.composerMode,
+                      themed && {
+                        backgroundColor: theme.incoming,
+                        borderLeftColor: theme.accent,
+                      },
+                    ]}
+                  >
                     <View style={styles.previewBody}>
-                      <Text style={styles.previewTitle}>
+                      <Text
+                        style={[
+                          styles.previewTitle,
+                          themed && { color: theme.accent },
+                        ]}
+                      >
                         {composerAction.kind === 'edit'
                           ? 'Edit message'
                           : `Reply to ${selectedMessage?.name || 'Visitor'}`}
@@ -582,7 +773,14 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
                       onPress={cancelComposerAction}
                       style={styles.cancelButton}
                     >
-                      <Text style={styles.cancelText}>X</Text>
+                      <Text
+                        style={[
+                          styles.cancelText,
+                          themed && { color: theme.accent },
+                        ]}
+                      >
+                        X
+                      </Text>
                     </Pressable>
                   </View>
                 )
@@ -602,9 +800,18 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
                   style={[
                     styles.quote,
                     position === 'right' && styles.quoteOutgoing,
+                    themed && {
+                      backgroundColor: theme.quoteBackground,
+                      borderLeftColor: theme.accent,
+                    },
                   ]}
                 >
-                  <Text style={styles.previewTitle}>
+                  <Text
+                    style={[
+                      styles.previewTitle,
+                      themed && { color: theme.accent },
+                    ]}
+                  >
                     {currentMessage.quote.senderName || 'Visitor'}
                   </Text>
                   <Text numberOfLines={3}>
@@ -619,7 +826,11 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
                 </Pressable>
               )}
               {currentMessage.webimMessage.isEdited && (
-                <Text style={styles.edited}>Edited</Text>
+                <Text
+                  style={[styles.edited, themed && { color: theme.secondary }]}
+                >
+                  Edited
+                </Text>
               )}
             </View>
           )}
@@ -630,6 +841,11 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
             isAvailable: hasMore,
             isLoading: loadingEarlier,
             onPress: loadNextMessages,
+            label: themed ? 'Ранние сообщения' : undefined,
+            textStyle: themed ? { color: theme.secondary } : undefined,
+            wrapperStyle: themed
+              ? { backgroundColor: 'transparent' }
+              : undefined,
           }}
           renderMessageVideo={({ currentMessage }) => {
             const videoUrl = currentMessage.video;
@@ -704,6 +920,11 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
             >
               {isUploadingAttachment ? (
                 <ActivityIndicator size="small" />
+              ) : themed ? (
+                <Paperclip
+                  size={appearance === 'pizza' ? 16 : 22}
+                  color={theme.secondary}
+                />
               ) : (
                 <Text style={{ fontSize: 26 }}>+</Text>
               )}
@@ -728,6 +949,40 @@ export const CustomChat = (props: ChatContainerBaseProps) => {
 };
 
 const styles = StyleSheet.create({
+  themedSystemMessage: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginHorizontal: 24,
+    marginVertical: 8,
+  },
+  themedDay: { fontSize: 10, textAlign: 'center', marginVertical: 12 },
+  pizzaMessageImage: { width: 150, height: 150, borderRadius: 16 },
+  sendDisabled: { opacity: 0.4 },
+  themedToolbar: {
+    marginHorizontal: 10,
+    marginVertical: 8,
+    borderWidth: 1.5,
+    borderRadius: 24,
+    backgroundColor: '#ffffff',
+  },
+  themedToolbarPrimary: { alignItems: 'center' },
+  iconSend: {
+    width: 34,
+    height: 34,
+    margin: 5,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pizzaAvatarBox: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pizzaOperator: { width: 26, height: 28 },
+  pizzaVisitor: { width: 26, height: 25 },
   reaction: {
     alignSelf: 'flex-start',
     minWidth: 44,
