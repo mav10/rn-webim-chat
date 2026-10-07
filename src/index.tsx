@@ -136,6 +136,27 @@ export class RNWebim {
       .then(() => undefined);
   }
 
+  static editMessage(messageId: string, text: string): Promise<void> {
+    return RnWebimChat.editMessage(messageId, text)
+      .catch(webimErrorHandler)
+      .then(() => undefined);
+  }
+
+  static deleteMessage(messageId: string): Promise<void> {
+    return RnWebimChat.deleteMessage(messageId)
+      .catch(webimErrorHandler)
+      .then(() => undefined);
+  }
+
+  static sendReaction(
+    messageId: string,
+    reaction: 'like' | 'dislike'
+  ): Promise<void> {
+    return RnWebimChat.sendReaction(messageId, reaction)
+      .catch(webimErrorHandler)
+      .then(() => undefined);
+  }
+
   static sendKeyboardResponse(
     messageId: string,
     buttonId: string

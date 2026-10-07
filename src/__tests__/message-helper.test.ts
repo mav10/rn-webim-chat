@@ -101,6 +101,9 @@ describe('mapWebimToChatMessage keyboards', () => {
       },
     } as WebimMessage;
 
-    expect(mapWebimToChatMessage(message).quickReplies).toBeUndefined();
+    const mapped = mapWebimToChatMessage(message);
+    expect(mapped.quickReplies).toBeUndefined();
+    expect(mapped.quote).toEqual(message.quote);
+    expect(mapped.webimMessage).toBe(message);
   });
 });

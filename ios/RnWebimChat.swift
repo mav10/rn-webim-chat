@@ -43,6 +43,38 @@ private final class RnWebimKeyboardCompletionHandler: NSObject, SendKeyboardRequ
     }
 }
 
+private final class RnWebimMessageActionCompletionHandler: NSObject, EditMessageCompletionHandler, DeleteMessageCompletionHandler, ReactionCompletionHandler {
+    private let resolve: RCTPromiseResolveBlock
+    private let reject: RCTPromiseRejectBlock
+    private let release: () -> Void
+
+    init(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock, release: @escaping () -> Void) {
+        self.resolve = resolve
+        self.reject = reject
+        self.release = release
+    }
+
+    func onSuccess(messageID: String) {
+        release()
+        resolve(nil)
+    }
+
+    func onFailure(messageID: String, error: EditMessageError) {
+        release()
+        reject("EDIT_MESSAGE_FAILED", String(describing: error), error)
+    }
+
+    func onFailure(messageID: String, error: DeleteMessageError) {
+        release()
+        reject("DELETE_MESSAGE_FAILED", String(describing: error), error)
+    }
+
+    func onFailure(error: ReactionError) {
+        release()
+        reject("REACTION_FAILED", String(describing: error), error)
+    }
+}
+
 @objc(RnWebimChat)
 open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, FatalErrorHandler, NotFatalErrorHandler {
     
@@ -51,6 +83,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     var messageTracker: MessageTracker?
     private let messagesLock = NSLock()
     private var messagesByID: [String: Message] = [:]
+    private var messageActionHandlers: [UUID: RnWebimMessageActionCompletionHandler] = [:]
 
     private var pickerController: UIImagePickerController;
     private weak var delegate: ImagePickerDelegate?;
@@ -411,6 +444,76 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
         } catch let error {
             handleError(rejecter: reject, errorCode: "KEYBOARD_RESPONSE_FAILED", message: error.localizedDescription, isFatal: false)
+        }
+    }
+
+    @objc(editMessage:withText:withResolver:withRejecter:)
+    func editMessage(messageID: String, text: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        performMessageAction(messageID: messageID, resolve: resolve, reject: reject) { stream, message, handler in
+            try stream.edit(message: message, text: text, completionHandler: handler)
+        }
+    }
+
+    @objc(deleteMessage:withResolver:withRejecter:)
+    func deleteMessage(messageID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        performMessageAction(messageID: messageID, resolve: resolve, reject: reject) { stream, message, handler in
+            try stream.delete(message: message, completionHandler: handler)
+        }
+    }
+
+    @objc(sendReaction:withReaction:withResolver:withRejecter:)
+    func sendReaction(messageID: String, reaction: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        let sdkReaction: ReactionString
+        switch reaction {
+        case "like": sdkReaction = .like
+        case "dislike": sdkReaction = .dislike
+        default:
+            handleError(rejecter: reject, errorCode: "INVALID_REACTION", message: "Reaction must be like or dislike", isFatal: false)
+            return
+        }
+        performMessageAction(messageID: messageID, resolve: resolve, reject: reject) { stream, message, handler in
+            try stream.react(message: message, reaction: sdkReaction, completionHandler: handler)
+        }
+    }
+
+    private func performMessageAction(messageID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock, operation: (MessageStream, Message, RnWebimMessageActionCompletionHandler) throws -> Bool) {
+        messagesLock.lock()
+        let message = messagesByID[messageID]
+        messagesLock.unlock()
+        guard let message else {
+            handleError(rejecter: reject, errorCode: "MESSAGE_NOT_FOUND", message: "Message is not in the loaded message history", isFatal: false)
+            return
+        }
+        guard let messageStream else {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Can not modify a message without an active session", isFatal: true)
+            return
+        }
+
+        let operationID = UUID()
+        let release = { [weak self] in
+            guard let self else { return }
+            self.messagesLock.lock()
+            self.messageActionHandlers.removeValue(forKey: operationID)
+            self.messagesLock.unlock()
+        }
+        let handler = RnWebimMessageActionCompletionHandler(resolve: resolve, reject: reject, release: release)
+        messagesLock.lock()
+        messageActionHandlers[operationID] = handler
+        messagesLock.unlock()
+        do {
+            if try !operation(messageStream, message, handler) {
+                release()
+                handleError(rejecter: reject, errorCode: "MESSAGE_ACTION_REJECTED", message: "Message action was not accepted", isFatal: false)
+            }
+        } catch AccessError.invalidSession {
+            release()
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destroyed", isFatal: true)
+        } catch AccessError.invalidThread {
+            release()
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+        } catch let error {
+            release()
+            handleError(rejecter: reject, errorCode: "UNKNOWN", message: error.localizedDescription, isFatal: false)
         }
     }
 

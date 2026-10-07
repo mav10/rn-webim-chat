@@ -260,6 +260,18 @@ const accepted = await RNWebim.reply(message, messageToReplyTo);
 
 The method returns whether the SDK accepted the reply for sending. The target must be present in the messages loaded by the native SDK tracker.
 
+### Edit, delete, and react
+
+```typescript
+await RNWebim.editMessage(message.id, 'Updated text');
+await RNWebim.deleteMessage(message.id);
+await RNWebim.sendReaction(message.id, 'like');
+```
+
+These operations return `Promise<void>` and resolve only after the SDK success callback. Targets must have been loaded by the native message tracker. SDK refusal, unknown message IDs, and server errors reject the promise. Reactions accept only `like` or `dislike`; removing a reaction is not exposed because iOS SDK 4.0.1 has no matching operation. Editing, deletion, and reactions depend on account permissions and server configuration. Listen for changed/removed message events to update the UI; promise resolution does not replace those events.
+
+See [device acceptance](doc/device-acceptance.md) for the remaining release checks.
+
 ### Send a sticker
 
 ```typescript

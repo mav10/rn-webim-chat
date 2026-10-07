@@ -23,15 +23,21 @@ import { NativeModules } from 'react-native';
 import { RNWebim } from '../index';
 import type { WebimMessage } from '../types';
 
-const mockReplyNative = (NativeModules as unknown as {
-  RnWebimChat: { reply: jest.Mock; sendSticker: jest.Mock };
-}).RnWebimChat.reply;
-const mockSendStickerNative = (NativeModules as unknown as {
-  RnWebimChat: { sendSticker: jest.Mock };
-}).RnWebimChat.sendSticker;
-const mockSendKeyboardResponseNative = (NativeModules as unknown as {
-  RnWebimChat: { sendKeyboardResponse: jest.Mock };
-}).RnWebimChat.sendKeyboardResponse;
+const mockReplyNative = (
+  NativeModules as unknown as {
+    RnWebimChat: { reply: jest.Mock; sendSticker: jest.Mock };
+  }
+).RnWebimChat.reply;
+const mockSendStickerNative = (
+  NativeModules as unknown as {
+    RnWebimChat: { sendSticker: jest.Mock };
+  }
+).RnWebimChat.sendSticker;
+const mockSendKeyboardResponseNative = (
+  NativeModules as unknown as {
+    RnWebimChat: { sendKeyboardResponse: jest.Mock };
+  }
+).RnWebimChat.sendKeyboardResponse;
 
 describe('RNWebim.reply', () => {
   beforeEach(() => {

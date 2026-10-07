@@ -43,10 +43,10 @@ import ru.webim.android.sdk.MessageTracker;
 import ru.webim.android.sdk.NotFatalErrorHandler;
 import ru.webim.android.sdk.Operator;
 import ru.webim.android.sdk.ProvidedAuthorizationTokenStateListener;
-import ru.webim.android.sdk.SendStickerCallback;
 import ru.webim.android.sdk.Webim;
 import ru.webim.android.sdk.WebimError;
 import ru.webim.android.sdk.WebimSession;
+import ru.webim.android.sdk.impl.MessageReaction;
 import ru.webim.android.sdk.impl.WebimErrorImpl;
 
 @ReactModule(name = RnWebimChatModule.NAME)
@@ -62,6 +62,11 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   private WebimSession session;
   private final Map<String, Message> messagesById = new ConcurrentHashMap<>();
 
+  @ReactMethod
+  public void addListener(String eventName) {}
+
+  @ReactMethod
+  public void removeListeners(double count) {}
 
   public RnWebimChatModule(ReactApplicationContext context) {
     super(context);
@@ -354,15 +359,15 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   @ReactMethod
   public void sendSticker(int stickerId, final Promise promise) {
     try {
-      session.getStream().sendSticker(stickerId, new SendStickerCallback() {
+      session.getStream().sendSticker(stickerId, new MessageStream.SendStickerCallback() {
         @Override
         public void onSuccess() {
           promise.resolve(null);
         }
 
         @Override
-        public void onFailure(WebimError error) {
-          handleError(promise, error.getErrorType().toString(), error.getErrorString(), false, null);
+        public void onFailure(WebimError<MessageStream.SendStickerCallback.SendStickerError> error) {
+          handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
         }
       });
     } catch (NullPointerException e) {
@@ -391,6 +396,95 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     } catch (NullPointerException e) {
       handleError(promise, "NULL_SESSION", "Can not send a keyboard response as session or stream is destroyed", true, e);
     } catch (IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    }
+  }
+
+  @ReactMethod
+  public void editMessage(String messageId, String text, final Promise promise) {
+    Message message = messagesById.get(messageId);
+    if (message == null) {
+      handleError(promise, "MESSAGE_NOT_FOUND", "Message is not in the loaded message history", false, null);
+      return;
+    }
+    try {
+      boolean accepted = session.getStream().editMessage(message, text, new MessageStream.EditMessageCallback() {
+        @Override
+        public void onSuccess(Message.Id id, String editedText) {
+          promise.resolve(null);
+        }
+
+        @Override
+        public void onFailure(Message.Id id, WebimError<EditMessageError> error) {
+          handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
+        }
+      });
+      if (!accepted) {
+        handleError(promise, "MESSAGE_ACTION_REJECTED", "Message editing was not accepted", false, null);
+      }
+    } catch (NullPointerException | IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    }
+  }
+
+  @ReactMethod
+  public void deleteMessage(String messageId, final Promise promise) {
+    Message message = messagesById.get(messageId);
+    if (message == null) {
+      handleError(promise, "MESSAGE_NOT_FOUND", "Message is not in the loaded message history", false, null);
+      return;
+    }
+    try {
+      boolean accepted = session.getStream().deleteMessage(message, new MessageStream.DeleteMessageCallback() {
+        @Override
+        public void onSuccess(Message.Id id) {
+          promise.resolve(null);
+        }
+
+        @Override
+        public void onFailure(Message.Id id, WebimError<DeleteMessageError> error) {
+          handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
+        }
+      });
+      if (!accepted) {
+        handleError(promise, "MESSAGE_ACTION_REJECTED", "Message deletion was not accepted", false, null);
+      }
+    } catch (NullPointerException | IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    }
+  }
+
+  @ReactMethod
+  public void sendReaction(String messageId, String reaction, final Promise promise) {
+    if (!"like".equals(reaction) && !"dislike".equals(reaction)) {
+      handleError(promise, "INVALID_REACTION", "Reaction must be like or dislike", false, null);
+      return;
+    }
+    Message message = messagesById.get(messageId);
+    if (message == null) {
+      handleError(promise, "MESSAGE_NOT_FOUND", "Message is not in the loaded message history", false, null);
+      return;
+    }
+    try {
+      MessageReaction sdkReaction = "like".equals(reaction) ? MessageReaction.LIKE : MessageReaction.DISLIKE;
+      session.getStream().reactMessage(message, sdkReaction, new MessageStream.MessageReactionCallback() {
+        @Override
+        public void onSuccess(Message.Id id) {
+          promise.resolve(null);
+        }
+
+        @Override
+        public void onFailure(Message.Id id, WebimError<MessageReactionError> error) {
+          handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
+        }
+      });
+    } catch (NullPointerException | IllegalStateException e) {
       handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
     } catch (RuntimeException e) {
       handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);

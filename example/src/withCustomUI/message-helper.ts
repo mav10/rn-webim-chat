@@ -6,7 +6,11 @@ import type {
 } from 'react-native-gifted-chat';
 import type { WebimMessage } from 'rn-webim-chat';
 
-export type ChatMessage = IChatMessage & { attachmentUrl?: string };
+export type ChatMessage = IChatMessage & {
+  attachmentUrl?: string;
+  quote?: WebimMessage['quote'];
+  webimMessage: WebimMessage;
+};
 
 export function mapWebimToChatMessage(msg: WebimMessage): ChatMessage {
   const attachment = msg.attachment;
@@ -39,6 +43,8 @@ export function mapWebimToChatMessage(msg: WebimMessage): ChatMessage {
 
   return {
     _id: msg.id,
+    quote: msg.quote,
+    webimMessage: msg,
     text: attachment ? (isImage || isVideo ? '' : attachment.name) : msg.text,
     createdAt: msg.time,
     sent: msg.status === 'SENT',
@@ -54,12 +60,13 @@ export function mapWebimToChatMessage(msg: WebimMessage): ChatMessage {
       msg.type !== 'VISITOR' &&
       msg.type !== 'FILE_FROM_OPERATOR' &&
       msg.type !== 'FILE_FROM_VISITOR',
-    quickReplies: keyboardButtons.length > 0
-      ? {
-          type: 'radio',
-          values: keyboardButtons as Reply[],
-          keepIt: false,
-        }
-      : undefined,
+    quickReplies:
+      keyboardButtons.length > 0
+        ? {
+            type: 'radio',
+            values: keyboardButtons as Reply[],
+            keepIt: false,
+          }
+        : undefined,
   } as IMessage & ChatMessage;
 }

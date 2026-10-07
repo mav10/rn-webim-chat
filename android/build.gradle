@@ -131,6 +131,8 @@ dependencies {
     //noinspection GradleDynamicVersion
   implementation "com.facebook.react:react-native:${safeExtGet('reactNativeVersion', '+')}"
   implementation 'ru.webim.sdk:webimclientsdkandroid:4.1.4'
+  implementation platform('com.squareup.okhttp3:okhttp-bom:5.3.2')
+  implementation 'com.squareup.okhttp3:okhttp-urlconnection'
   // From node_modules
 }
 
