@@ -1,12 +1,16 @@
-jest.mock('rn-webim-chat', () => ({
-  __esModule: true,
-  default: {
-    sendFile: jest.fn(),
-    sendFiles: jest.fn(),
-    send: jest.fn(),
-    editMessage: jest.fn(),
-  },
-}));
+jest.mock(
+  'rn-webim-chat',
+  () => ({
+    __esModule: true,
+    default: {
+      sendFile: jest.fn(),
+      sendFiles: jest.fn(),
+      send: jest.fn(),
+      editMessage: jest.fn(),
+    },
+  }),
+  { virtual: true }
+);
 
 import RNWebim from 'rn-webim-chat';
 import {
