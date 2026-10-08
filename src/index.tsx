@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import type {
   AttachFileResult,
+  AttachFilesOptions,
   DialogClearedListener,
   ErrorListener,
   FileUploadingListener,
@@ -13,6 +14,7 @@ import type {
   Operator,
   RemoveMessageListener,
   SessionBuilderParams,
+  SendFilesOptions,
   StateListener,
   TokenUpdatedListener,
   TypingListener,
@@ -24,6 +26,7 @@ import type {
 } from './types';
 import { WebimEvents } from './types';
 import { webimErrorHandler, WebimSubscription } from './utils';
+import { sendAttachmentGroup, validateAttachmentLimit } from './attachments';
 
 const LINKING_ERROR =
   `The package 'rn-webim-chat' doesn't seem to be linked. Make sure: \n\n` +
@@ -60,6 +63,19 @@ const emitter = new NativeEventEmitter<WebimNativeEventMap>(RnWebimChat);
 const DEFAULT_MESSAGES_LIMIT = 100;
 
 export class RNWebim {
+  static setPushToken(token: string): Promise<void> {
+    if (typeof token !== 'string' || !token.trim()) {
+      return Promise.reject({
+        errorCode: 'INVALID_PUSH_TOKEN',
+        message: 'Push token must not be empty',
+        errorType: 'common',
+      });
+    }
+    return RnWebimChat.setPushToken(token)
+      .catch(webimErrorHandler)
+      .then(() => undefined);
+  }
+
   static initSession(params: SessionBuilderParams): Promise<void> {
     return RnWebimChat.initSession(params)
       .catch(webimErrorHandler)
@@ -197,6 +213,56 @@ export class RNWebim {
         (result: AttachFileResult) => resolve(result)
       );
     });
+  }
+
+  static async tryAttachFiles(
+    options: AttachFilesOptions = {}
+  ): Promise<AttachFileResult[]> {
+    const maxFiles = validateAttachmentLimit(options.maxFiles);
+    return RnWebimChat.tryAttachFiles({
+      kind: options.kind ?? 'documents',
+      maxFiles,
+    }).catch(webimErrorHandler);
+  }
+
+  static uploadFile(file: AttachFileResult): Promise<string> {
+    return RnWebimChat.uploadFile(
+      file.uri,
+      file.name,
+      file.mime,
+      file.extension
+    ).catch(webimErrorHandler);
+  }
+
+  static sendUploadedFiles(handles: string[]): Promise<{ id: string }> {
+    if (!Array.isArray(handles) || handles.length < 1 || handles.length > 10) {
+      return Promise.reject({
+        errorCode: 'INVALID_FILES_COUNT',
+        message: 'Select between 1 and 10 files',
+        errorType: 'common',
+      });
+    }
+    return RnWebimChat.sendUploadedFiles(handles).catch(webimErrorHandler);
+  }
+
+  static deleteUploadedFile(handle: string): Promise<void> {
+    return RnWebimChat.deleteUploadedFile(handle)
+      .catch(webimErrorHandler)
+      .then(() => undefined);
+  }
+
+  static sendFiles(
+    files: AttachFileResult[],
+    options: SendFilesOptions = {}
+  ): Promise<{ id: string }> {
+    return sendAttachmentGroup(RNWebim, files, options);
+  }
+
+  static async tryAttachAndSendFiles(
+    options: AttachFilesOptions & SendFilesOptions = {}
+  ): Promise<{ id: string }> {
+    const files = await RNWebim.tryAttachFiles(options);
+    return RNWebim.sendFiles(files, options);
   }
 
   static sendFile(
@@ -339,4 +405,5 @@ export class RNWebim {
 export * from './types';
 export * from './utils';
 export * from './webimNativeError';
+export * from './notifications';
 export default RNWebim;

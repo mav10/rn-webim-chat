@@ -11,6 +11,7 @@ export type SessionBuilderParams = {
   storeHistoryLocally?: boolean;
   title?: string;
   pushToken?: string;
+  pushSystem?: 'none' | 'apns' | 'fcm';
   prechat?: string;
 };
 
@@ -71,7 +72,7 @@ export type WebimMessage = {
   type: MessageTypeAlias;
   text: string;
   name: string;
-  status: 'SENT' | 'SENDING';
+  status: 'SENT' | 'SENDING' | 'FAILED';
   read: boolean;
   canEdit: boolean;
   canReply: boolean;
@@ -84,6 +85,7 @@ export type WebimMessage = {
   keyboardRequest?: WebimKeyboardRequest;
   quote?: Quote;
   attachment?: WebimAttachment;
+  attachments?: WebimAttachment[];
   operatorId?: string;
 };
 
@@ -111,6 +113,25 @@ export type AttachFileResult = {
   name: string;
   mime: string;
   extension: string;
+};
+
+export type AttachFilesOptions = {
+  kind?: 'media' | 'documents';
+  maxFiles?: number;
+};
+
+export type SendFilesProgress = {
+  operationId: string;
+  fileIndex: number;
+  completedFiles: number;
+  totalFiles: number;
+  phase: 'uploading' | 'committing' | 'sent';
+};
+
+export type SendFilesOptions = {
+  signal?: AbortSignal;
+  maxFiles?: number;
+  onProgress?: (progress: SendFilesProgress) => void;
 };
 
 export type WebimNativeError = {

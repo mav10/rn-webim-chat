@@ -110,9 +110,56 @@ await RNWebim.initSession(builderParams: SessionBuilderParams)
 - storeHistoryLocally - cache messages in local store
 - title - title for chat in webim web panel
 - providedAuthorizationToken - user token. Session will not start with wrong token. Read webim documentation
-- pushToken - FCM token is enough - but Apple pushes will come through APN, so you are not able to process them in app by default.
+- pushToken - native APNs hexadecimal device token on iOS, FCM registration token on Android. Do not use an FCM token for direct iOS APNs.
+- pushSystem - `none`, `apns` (iOS), or `fcm` (Android). Set it before a token is available; use `RNWebim.setPushToken(token)` when registration or refresh completes.
 - appVersion - version of your Application
 - prechat - some additional fields to prechat
+
+### Multiple Attachments
+
+These APIs are implemented in the current source, not the previously published
+2.2.1 package. Each group becomes **one message**, not one message per file.
+Both SDKs support up to 10 uploaded files, subject to Webim server support and
+account limits. Verify this on your account before enabling grouped selection.
+
+```ts
+const files = await RNWebim.tryAttachFiles({ kind: 'documents', maxFiles: 10 });
+const message = await RNWebim.sendFiles(files, {
+  onProgress: ({ completedFiles, totalFiles, phase }) => {
+    updateUploadState({ completedFiles, totalFiles, phase });
+  },
+});
+```
+
+Use `kind: 'media'` for photos/videos, or pass your own local files directly to
+`sendFiles`. `tryAttachAndSendFiles(options)` combines selection and sending.
+Messages include `attachments[]`; `attachment` remains the first-file alias.
+Existing single-file methods remain available. See [attachment lifecycle](doc/attachments.md)
+for cancellation, retry, low-level upload handles, and uncertain commit errors.
+
+### Push Notifications
+
+Core exports `normalizeWebimNotification` and `createWebimNotificationController`
+for integration with an existing notification stack. The optional companion
+under [packages/notifications](packages/notifications/README.md) supplies Notifee
+display/events, direct APNs forwarding, and an Android Firebase adapter. It is
+not a dependency of the core, and neither package provides a chat UI.
+
+```ts
+await RNWebim.initSession({
+  accountName: 'your-account',
+  location: 'mobile',
+  pushSystem: Platform.OS === 'ios' ? 'apns' : 'fcm',
+});
+// Forward the actual platform device token, including refresh:
+await RNWebim.setPushToken(deviceToken);
+```
+
+iOS background notifications use Webim localization keys in the host app's
+main bundle. Notifee does not replace APNs registration or rewrite background
+content through JavaScript. The text/sound/open-chat recipe needs no notification
+service extension. See [notification setup](doc/notifications.md) for ready and
+external modes, native forwarding, localized defaults, and cold-start routing.
 
 ### Resume session
 

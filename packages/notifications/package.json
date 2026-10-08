@@ -1,0 +1,80 @@
+{
+  "name": "rn-webim-chat-notifications",
+  "version": "0.1.0",
+  "description": "Opt-in Notifee display and direct APNs forwarding for rn-webim-chat",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "react-native": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "react-native": "./src/index.ts",
+      "default": "./lib/index.js"
+    },
+    "./firebase": {
+      "types": "./lib/firebase.d.ts",
+      "react-native": "./src/firebase.ts",
+      "default": "./lib/firebase.js"
+    }
+  },
+  "files": [
+    "src",
+    "lib",
+    "ios",
+    "resources",
+    "scripts",
+    "docs",
+    "*.podspec",
+    "react-native.config.js",
+    "tsconfig.build.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "verify:core-source": "node scripts/build.cjs --verify-core && jest --runInBand --moduleNameMapper '{\"^rn-webim-chat$\":\"<rootDir>/.core-contract/notifications.js\"}'",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "test": "jest --runInBand",
+    "localization": "node scripts/localization.cjs"
+  },
+  "peerDependencies": {
+    "rn-webim-chat": ">=3.0.0-0 <4",
+    "@notifee/react-native": "^9.1.8",
+    "react-native": ">=0.76",
+    "@react-native-firebase/app": ">=23 <25",
+    "@react-native-firebase/messaging": ">=23 <25"
+  },
+  "peerDependenciesMeta": {
+    "@react-native-firebase/app": {
+      "optional": true
+    },
+    "@react-native-firebase/messaging": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@notifee/react-native": "^9.1.8",
+    "@react-native-firebase/app": "^23.0.0",
+    "@react-native-firebase/messaging": "^23.0.0",
+    "react-native": "0.87.1",
+    "react": "19.2.3",
+    "@types/react": "^19.2.0",
+    "@types/jest": "^29.5.14",
+    "typescript": "^6.0.3",
+    "jest": "^29.6.3",
+    "rn-webim-chat": "file:../.."
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.cjs"
+    ],
+    "transform": {
+      "^.+\\.[jt]s$": "<rootDir>/tests/transform.cjs"
+    },
+    "moduleNameMapper": {
+      "^rn-webim-chat$": "<rootDir>/node_modules/rn-webim-chat/lib/commonjs/index.js",
+      "^react-native$": "<rootDir>/node_modules/react-native/index.js"
+    }
+  }
+}

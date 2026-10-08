@@ -34,6 +34,10 @@ Record OS, app revision, account/location, server version, and SDK versions for 
 - [ ] Receive pending bot keyboard; select a button; verify response and changed keyboard state.
 - [ ] Pick image, video, and document; cancel picker; verify progress, success, and errors.
 - [ ] Reject an oversized file; run concurrent uploads and verify temporary-file cleanup.
+- [ ] Select 2 and 10 files; send one grouped message; verify all files on the operator side and in reloaded history.
+- [ ] Fail the second upload, retry retained selection, cancel upload and switch users; never commit a partial group or automatically repeat an uncertain commit.
+- [ ] Configure direct APNs / Android FCM, refresh device tokens, and open the chat once from foreground/background/cold-start pushes.
+- [ ] Verify ru/en Webim loc-key text with iOS JS stopped, visible-chat suppression, no duplicate system/local banners, and foreign-push coexistence.
 - [ ] Background/resume, disconnect/reconnect, logout and user switch; no stale messages or callbacks.
 - [ ] Scroll long history while receiving messages; test keyboard and safe-area layout.
 
@@ -47,6 +51,12 @@ Record OS, app revision, account/location, server version, and SDK versions for 
 - Physical iPhone installation remains pending Personal Team signing.
 
 ## Remaining prerequisites
+
+Grouped attachments and the opt-in notification companion are implemented in
+source and require live server/device acceptance before publication. See
+[attachments](attachments.md) and [notifications](notifications.md). The prior
+published 2.2.1 package does not contain these APIs. No claim of remote push
+unregistration is made by destroying a session.
 
 - Confirm the actual Webim 10.8.77 test account/location; the bundled account is a demo and its server version is unverified.
 - Configure Maxim Vasin's Personal Team in Xcode for the physical iPhone. The locally valid Maxim Vasin certificate belongs to an organization and must not be substituted for Personal Team.

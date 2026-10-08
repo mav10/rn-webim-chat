@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "paths": { "rn-webim-chat": ["./.core-contract/notifications.d.ts"] }
+  }
+}

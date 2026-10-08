@@ -9,7 +9,11 @@ jest.mock(
 
 import RNWebim from 'rn-webim-chat';
 import type { WebimMessage } from '../types';
-import { submitChatText } from '../../example/src/withCustomUI/message-actions';
+import {
+  canRetryFailedText,
+  retryFailedText,
+  submitChatText,
+} from '../../example/src/withCustomUI/message-actions';
 
 const native = RNWebim as jest.Mocked<typeof RNWebim>;
 const message = {
@@ -88,6 +92,25 @@ it('propagates native edit errors so the composer can retain its draft', async (
   await expect(
     submitChatText('Edit', { ...action, kind: 'edit' }, [message])
   ).rejects.toThrow('Server refused edit');
+});
+
+it('retries only text messages the SDK confirms as FAILED', async () => {
+  native.send.mockResolvedValue('retry-id');
+  await expect(retryFailedText({ ...message, status: 'FAILED' })).resolves.toBe(
+    'retry-id'
+  );
+  expect(native.send).toHaveBeenCalledWith('Original');
+
+  for (const invalid of [
+    message,
+    { ...message, status: 'FAILED', type: 'OPERATOR' },
+    { ...message, status: 'FAILED', attachment: { name: 'file.pdf' } },
+  ] as WebimMessage[]) {
+    expect(canRetryFailedText(invalid)).toBe(false);
+    await expect(retryFailedText(invalid)).rejects.toThrow('confirmed failed');
+  }
+  expect(canRetryFailedText({ ...message, status: 'FAILED' })).toBe(true);
+  expect(native.send).toHaveBeenCalledTimes(1);
 });
 
 it('rejects blank input before invoking the SDK', async () => {

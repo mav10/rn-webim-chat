@@ -1,6 +1,36 @@
 import WebimMobileSDK
 import Foundation
 import UniformTypeIdentifiers
+import PhotosUI
+
+private final class RnWebimAttachmentCompletionHandler: NSObject, UploadFileToServerCompletionHandler, SendFilesCompletionHandler, DeleteUploadedFileCompletionHandler {
+    var uploaded: ((UploadedFile) -> Void)?
+    var sent: ((String) -> Void)?
+    var deleted: (() -> Void)?
+    var failed: ((Error) -> Void)?
+
+    func onSuccess(id: String, uploadedFile: UploadedFile) { uploaded?(uploadedFile) }
+    func onSuccess(messageID: String) { sent?(messageID) }
+    func onSuccess() { deleted?() }
+    func onFailure(messageID: String, error: SendFileError) { failed?(error) }
+    func onFailure(messageID: String, error: SendFilesError) { failed?(error) }
+    func onFailure(error: DeleteUploadedFileError) { failed?(error) }
+}
+
+private func attachmentErrorCode(_ error: Error) -> String {
+    if let error = error as? AccessError {
+        switch error {
+        case .invalidSession: return "NULL_SESSION"
+        case .invalidThread: return "WRONG_SESSION"
+        }
+    }
+    if error is SendFileError || error is SendFilesError || error is DeleteUploadedFileError {
+        return String(describing: error)
+            .replacingOccurrences(of: "([a-z0-9])([A-Z])", with: "$1_$2", options: .regularExpression)
+            .uppercased()
+    }
+    return "ATTACHMENT_OPERATION_FAILED"
+}
 
 private final class RnWebimStickerCompletionHandler: NSObject, SendStickerCompletionHandler {
     private let resolve: RCTPromiseResolveBlock
@@ -92,6 +122,203 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
     private let sendFileHandlersLock = NSLock()
     private var sendFileHandlers: [UUID: WebimFileSendCompletionHandler] = [:]
+    private var uploadedFiles: [String: UploadedFile] = [:]
+    private var busyUploadHandles: Set<String> = []
+    private var attemptedCommitHandles: Set<String> = []
+    private var attachmentHandlers: [UUID: RnWebimAttachmentCompletionHandler] = [:]
+    private var attachmentRejecters: [UUID: RCTPromiseRejectBlock] = [:]
+    private var attachmentGeneration = UUID()
+    // Picker URIs remain retryable until session cleanup; there is no per-selection release API.
+    private var pickerCopies: Set<URL> = []
+    private var multiplePickerResolve: RCTPromiseResolveBlock?
+    private var multiplePickerReject: RCTPromiseRejectBlock?
+    private var multiplePickerLimit = 10
+    private var multiplePickerOperation: UUID?
+    private weak var multiplePickerController: UIViewController?
+    private var pendingPushToken: String?
+    private var pushSystem = "none"
+
+    @objc(setPushToken:withResolver:withRejecter:)
+    func setPushToken(token: String, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+        guard validAPNSToken(token) else {
+            reject("INVALID_PUSH_TOKEN", "APNs token must be nonempty hexadecimal; empty tokens do not unregister push", nil)
+            return
+        }
+        guard chatSession == nil || pushSystem == "apns" else {
+            reject("INVALID_PUSH_SYSTEM", "The active session must enable apns before updating its token", nil)
+            return
+        }
+        do {
+            try chatSession?.set(deviceToken: token)
+            pendingPushToken = token
+            resolve(nil)
+        } catch {
+            reject("PUSH_TOKEN_UPDATE_FAILED", error.localizedDescription, error)
+        }
+    }
+
+    private func validAPNSToken(_ token: String) -> Bool {
+        return !token.isEmpty && token.count % 2 == 0 && token.unicodeScalars.allSatisfy {
+            (48...57).contains($0.value) || (65...70).contains($0.value) || (97...102).contains($0.value)
+        }
+    }
+
+    @objc(uploadFile:withName:withMime:withExtension:withResolver:withRejecter:)
+    func uploadFile(uri: String, name: String, mime: String, fileExtension: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard chatSession != nil, messageStream != nil else {
+            reject("NULL_SESSION", "Upload requires an active session", nil)
+            return
+        }
+        guard let url = URL(string: uri), url.isFileURL, !name.isEmpty, !mime.isEmpty else {
+            reject("INVALID_ATTACHMENT", "A readable local file URI, name and MIME type are required", nil)
+            return
+        }
+        let operation = UUID()
+        let generation = attachmentGeneration
+        attachmentRejecters[operation] = reject
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            let dataResult = Result { try Data(contentsOf: url) }
+            DispatchQueue.main.async {
+                guard self.attachmentGeneration == generation, self.attachmentRejecters[operation] != nil else { return }
+                do {
+                    let data = try dataResult.get()
+                    let handler = RnWebimAttachmentCompletionHandler()
+                    handler.uploaded = { [weak self] file in
+                        DispatchQueue.main.async {
+                            guard let self, self.attachmentRejecters.removeValue(forKey: operation) != nil else { return }
+                            self.attachmentHandlers.removeValue(forKey: operation)
+                            let handle = UUID().uuidString
+                            self.uploadedFiles[handle] = file
+                            resolve(handle)
+                        }
+                    }
+                    handler.failed = { [weak self] error in
+                        DispatchQueue.main.async { self?.failAttachmentOperation(operation, error: error) }
+                    }
+                    self.attachmentHandlers[operation] = handler
+                    _ = try self.messageStream.uploadFilesToServer(file: data, filename: name, mimeType: mime, completionHandler: handler)
+                } catch {
+                    self.failAttachmentOperation(operation, error: error)
+                }
+            }
+        }
+    }
+
+    @objc(sendUploadedFiles:withResolver:withRejecter:)
+    func sendUploadedFiles(handles: [String], resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard chatSession != nil, messageStream != nil else {
+            reject("NULL_SESSION", "Send requires an active session", nil)
+            return
+        }
+        guard !handles.isEmpty, handles.count <= 10, Set(handles).count == handles.count,
+              handles.allSatisfy({ uploadedFiles[$0] != nil && !busyUploadHandles.contains($0) }) else {
+            reject("INVALID_UPLOAD_HANDLES", "A group requires 1 to 10 distinct, current, idle upload handles", nil)
+            return
+        }
+        let operation = UUID()
+        let handler = RnWebimAttachmentCompletionHandler()
+        busyUploadHandles.formUnion(handles)
+        attachmentRejecters[operation] = reject
+        handler.sent = { [weak self] id in
+            DispatchQueue.main.async {
+                guard let self, self.attachmentRejecters.removeValue(forKey: operation) != nil else { return }
+                self.attachmentHandlers.removeValue(forKey: operation)
+                self.busyUploadHandles.subtract(handles)
+                for handle in handles {
+                    self.uploadedFiles.removeValue(forKey: handle)
+                    self.attemptedCommitHandles.remove(handle)
+                }
+                resolve(["id": id])
+            }
+        }
+        handler.failed = { [weak self] error in
+            DispatchQueue.main.async {
+                guard let self, self.attachmentRejecters[operation] != nil else { return }
+                self.busyUploadHandles.subtract(handles)
+                self.failAttachmentOperation(operation, error: error)
+            }
+        }
+        attachmentHandlers[operation] = handler
+        do {
+            attemptedCommitHandles.formUnion(handles)
+            _ = try messageStream.send(uploadedFiles: handles.compactMap { uploadedFiles[$0] }, completionHandler: handler)
+        } catch {
+            busyUploadHandles.subtract(handles)
+            failAttachmentOperation(operation, error: error)
+        }
+    }
+
+    @objc(deleteUploadedFile:withResolver:withRejecter:)
+    // Explicit deletion is caller-authorized even after an uncertain commit; selected URIs stay valid.
+    func deleteUploadedFile(handle: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard chatSession != nil, messageStream != nil, let file = uploadedFiles[handle], !busyUploadHandles.contains(handle) else {
+            reject("INVALID_UPLOAD_HANDLE", "Unknown, stale, or busy upload handle", nil)
+            return
+        }
+        let operation = UUID()
+        let handler = RnWebimAttachmentCompletionHandler()
+        busyUploadHandles.insert(handle)
+        attachmentRejecters[operation] = reject
+        handler.deleted = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self, self.attachmentRejecters.removeValue(forKey: operation) != nil else { return }
+                self.attachmentHandlers.removeValue(forKey: operation)
+                self.busyUploadHandles.remove(handle)
+                self.uploadedFiles.removeValue(forKey: handle)
+                self.attemptedCommitHandles.remove(handle)
+                resolve(nil)
+            }
+        }
+        handler.failed = { [weak self] error in
+            DispatchQueue.main.async {
+                guard let self, self.attachmentRejecters[operation] != nil else { return }
+                self.busyUploadHandles.remove(handle)
+                self.failAttachmentOperation(operation, error: error)
+            }
+        }
+        attachmentHandlers[operation] = handler
+        do {
+            try messageStream.deleteUploadedFiles(fileGuid: file.getGuid(), completionHandler: handler)
+        } catch {
+            busyUploadHandles.remove(handle)
+            failAttachmentOperation(operation, error: error)
+        }
+    }
+
+    private func failAttachmentOperation(_ operation: UUID, error: Error) {
+        let reject = attachmentRejecters.removeValue(forKey: operation)
+        attachmentHandlers.removeValue(forKey: operation)
+        reject?(attachmentErrorCode(error), String(describing: error), error)
+    }
+
+    private func clearAttachmentState() {
+        attachmentGeneration = UUID()
+        if let stream = messageStream {
+            // A failed send callback does not prove the server did not commit the group.
+            for (handle, file) in uploadedFiles where !busyUploadHandles.contains(handle) && !attemptedCommitHandles.contains(handle) {
+                try? stream.deleteUploadedFiles(fileGuid: file.getGuid(), completionHandler: nil)
+            }
+        }
+        let rejecters = Array(attachmentRejecters.values)
+        attachmentRejecters.removeAll()
+        attachmentHandlers.removeAll()
+        uploadedFiles.removeAll()
+        busyUploadHandles.removeAll()
+        attemptedCommitHandles.removeAll()
+        for reject in rejecters { reject("SESSION_DESTROYED", "Attachment operation interrupted by session destruction", nil) }
+        for url in pickerCopies { try? FileManager.default.removeItem(at: url) }
+        pickerCopies.removeAll()
+        multiplePickerController?.dismiss(animated: true)
+        finishMultiplePicker(errorCode: "SESSION_DESTROYED", message: "Attachment selection interrupted by session destruction")
+        if let reject = rejectAttachCallback {
+            pickerController.dismiss(animated: true)
+            reject([getErrorObject(errorCode: "SESSION_DESTROYED", message: "Attachment selection interrupted by session destruction", isFatal: false)])
+        }
+        resolveAttachCallback = nil
+        rejectAttachCallback = nil
+    }
 
 
     override init() {
@@ -121,7 +348,18 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             let clearVisitorData: Bool? = builderData.value(forKey: "clearVisitorData") as? Bool;
             let storeHistoryLocally: Bool? = builderData.value(forKey: "storeHistoryLocally") as? Bool
             let title: String? = builderData.value(forKey: "title") as? String;
-            let pushToken: String? = builderData.value(forKey: "pushToken") as? String;
+            let pushToken: String? = builderData.value(forKey: "pushToken") as? String ?? pendingPushToken
+            let requestedPushSystem = builderData.value(forKey: "pushSystem") as? String ?? (pushToken == nil ? "none" : "apns")
+            guard requestedPushSystem == "none" || requestedPushSystem == "apns" else {
+                reject("INVALID_PUSH_SYSTEM", "iOS supports none or apns, not fcm", nil)
+                return
+            }
+            guard pushToken == nil || (requestedPushSystem == "apns" && validAPNSToken(pushToken!)) else {
+                reject("INVALID_PUSH_TOKEN", "A token requires apns and must be nonempty hexadecimal", nil)
+                return
+            }
+            pushSystem = requestedPushSystem
+            sessionBuilder = sessionBuilder.set(remoteNotificationSystem: requestedPushSystem == "apns" ? .apns : .none)
             let prechat: String? = builderData.value(forKey: "prechat") as? String;
 
             if(accountJSONAsString != nil) {
@@ -150,7 +388,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
                 sessionBuilder = sessionBuilder.set(pageTitle: title)
             }
 
-            if(pushToken != nil) {
+            if(pushToken != nil && requestedPushSystem == "apns") {
                 sessionBuilder = sessionBuilder
                     .set(remoteNotificationSystem: .apns)
                     .set(deviceToken: pushToken)
@@ -250,6 +488,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
     @objc(destroySession:withResolver:withRejecter:)
     func destroySession(clearuserData: Bool, resolve:RCTPromiseResolveBlock, reject:RCTPromiseRejectBlock) -> Void {
+        clearAttachmentState()
         if(messageTracker != nil) {
             do {
                 try messageTracker?.destroy()
@@ -288,6 +527,8 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         }
 
         messageStream = nil
+        pendingPushToken = nil
+        pushSystem = "none"
         messagesLock.lock()
         messagesByID.removeAll()
         messagesLock.unlock()
@@ -575,10 +816,19 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     @objc(tryAttachFile:withResolver:)
     func tryAttachFile(reject: @escaping RCTResponseSenderBlock, resolve: @escaping RCTResponseSenderBlock) -> Void {
             DispatchQueue.main.async {
+              guard self.multiplePickerResolve == nil, self.resolveAttachCallback == nil else {
+                  reject([self.getErrorObject(errorCode: "ATTACHMENT_PICKER_BUSY", message: "A file picker is already open", isFatal: false)])
+                  return
+              }
               self.resolveAttachCallback = resolve
               self.rejectAttachCallback = reject
-              let view = RCTPresentedViewController()
-              view?.present(self.pickerController, animated: true)
+              guard let view = RCTPresentedViewController(), view.viewIfLoaded?.window != nil else {
+                  self.resolveAttachCallback = nil
+                  self.rejectAttachCallback = nil
+                  reject([self.getErrorObject(errorCode: "ACTIVITY_UNAVAILABLE", message: "No view controller is available to present the picker", isFatal: false)])
+                  return
+              }
+              view.present(self.pickerController, animated: true)
             }
     }
 
@@ -729,7 +979,8 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
             "operatorId": message.getOperatorID(),
             "quote": message.getQuote() != nil ? self.quetoToDictionary(quote: message.getQuote()!) : nil,
-            "attachment": message.getData()?.getAttachment() != nil ? self.attachmentToJson(attachment: message.getData()?.getAttachment()) : nil,
+            "attachment": message.getData()?.getAttachment()?.getFilesInfo().first.map { self.fileInfoToJson(file: $0) },
+            "attachments": message.getData()?.getAttachment()?.getFilesInfo().map { self.fileInfoToJson(file: $0) },
         ] as [String : Any?]
 
         return result
@@ -827,12 +1078,17 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
 
     func attachmentToJson(attachment: MessageAttachment?) -> [String: Any?]  {
+        guard let file = attachment?.getFileInfo() else { return [:] }
+        return fileInfoToJson(file: file)
+    }
+
+    private func fileInfoToJson(file: FileInfo) -> [String: Any?] {
         return [
-            "contentType": attachment?.getFileInfo().getContentType(),
-            "info": attachment?.getFileInfo().getImageInfo()?.getThumbURL()?.absoluteString,
-            "name": attachment?.getFileInfo().getFileName(),
-            "size": attachment?.getFileInfo().getSize(),
-            "url": attachment?.getFileInfo().getURL()?.absoluteString
+            "contentType": file.getContentType(),
+            "info": file.getImageInfo()?.getThumbURL()?.absoluteString,
+            "name": file.getFileName(),
+            "size": file.getSize(),
+            "url": file.getURL()?.absoluteString
         ];
     }
     
@@ -1010,6 +1266,169 @@ extension RnWebimChat: UIImagePickerControllerDelegate {
         callback([result])
         self.resolveAttachCallback = nil
         self.rejectAttachCallback = nil
+    }
+}
+
+extension RnWebimChat: PHPickerViewControllerDelegate, UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
+    @objc(tryAttachFiles:withResolver:withRejecter:)
+    func tryAttachFiles(options: NSDictionary, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard multiplePickerResolve == nil, resolveAttachCallback == nil else {
+            reject("ATTACHMENT_PICKER_BUSY", "A file picker is already open", nil)
+            return
+        }
+        guard let kind = options["kind"] as? String, kind == "media" || kind == "documents",
+              let maximum = options["maxFiles"] as? NSNumber,
+              maximum.doubleValue >= 1, maximum.doubleValue <= 10,
+              maximum.doubleValue == Double(maximum.intValue) else {
+            reject("INVALID_ATTACHMENT_OPTIONS", "kind must be media or documents; maxFiles must be an integer from 1 to 10", nil)
+            return
+        }
+        guard let presenter = RCTPresentedViewController(), presenter.viewIfLoaded?.window != nil else {
+            reject("ACTIVITY_UNAVAILABLE", "No view controller is available to present the picker", nil)
+            return
+        }
+        multiplePickerResolve = resolve
+        multiplePickerReject = reject
+        multiplePickerLimit = maximum.intValue
+        multiplePickerOperation = UUID()
+        let controller: UIViewController
+        if kind == "media" {
+            var configuration = PHPickerConfiguration()
+            configuration.selectionLimit = maximum.intValue
+            configuration.filter = .any(of: [.images, .videos])
+            configuration.preferredAssetRepresentationMode = .current
+            let picker = PHPickerViewController(configuration: configuration)
+            picker.delegate = self
+            controller = picker
+        } else {
+            let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: false)
+            picker.allowsMultipleSelection = true
+            picker.delegate = self
+            controller = picker
+        }
+        multiplePickerController = controller
+        controller.presentationController?.delegate = self
+        presenter.present(controller, animated: true)
+        controller.presentationController?.delegate = self
+    }
+
+    private func finishMultiplePicker(results: [[String: String]]? = nil, errorCode: String? = nil, message: String? = nil) {
+        let resolve = multiplePickerResolve
+        let reject = multiplePickerReject
+        multiplePickerResolve = nil
+        multiplePickerReject = nil
+        multiplePickerOperation = nil
+        multiplePickerController = nil
+        if let errorCode { reject?(errorCode, message, nil) }
+        else if let results { resolve?(results) }
+    }
+
+    public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        finishMultiplePicker(errorCode: "SELECT_FILE_CANCELED", message: "File selection canceled")
+    }
+
+    public func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        finishMultiplePicker(errorCode: "SELECT_FILE_CANCELED", message: "File selection canceled")
+    }
+
+    private func copyPickerFile(_ url: URL, suggestedName: String? = nil) throws -> [String: String] {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let extensionName = url.pathExtension.lowercased()
+        var name = suggestedName.flatMap { $0.isEmpty ? nil : $0 } ?? url.lastPathComponent
+        if (name as NSString).pathExtension.isEmpty && !extensionName.isEmpty { name += "." + extensionName }
+        let copy = FileManager.default.temporaryDirectory.appendingPathComponent("webim-picker-" + UUID().uuidString).appendingPathExtension(extensionName)
+        var coordinationError: NSError?
+        var copyError: Error?
+        NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &coordinationError) { readableURL in
+            do { try FileManager.default.copyItem(at: readableURL, to: copy) }
+            catch { copyError = error }
+        }
+        if let error = coordinationError ?? (copyError as NSError?) {
+            try? FileManager.default.removeItem(at: copy)
+            throw error
+        }
+        return [
+            "uri": copy.absoluteString,
+            "name": name,
+            "mime": UTType(filenameExtension: extensionName)?.preferredMIMEType ?? "application/octet-stream",
+            "extension": extensionName
+        ]
+    }
+
+    private func completePickerCopies(_ results: [[String: String]], operation: UUID, error: Error? = nil) {
+        DispatchQueue.main.async {
+            let urls = results.compactMap { $0["uri"].flatMap(URL.init(string:)) }
+            guard self.multiplePickerOperation == operation, error == nil else {
+                for url in urls { try? FileManager.default.removeItem(at: url) }
+                if self.multiplePickerOperation == operation {
+                    self.finishMultiplePicker(errorCode: "SELECT_FILE_FAILED", message: error?.localizedDescription)
+                }
+                return
+            }
+            self.pickerCopies.formUnion(urls)
+            self.finishMultiplePicker(results: results)
+        }
+    }
+
+    public func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let operation = multiplePickerOperation else { return }
+        guard !urls.isEmpty, urls.count <= multiplePickerLimit else {
+            finishMultiplePicker(errorCode: "ATTACHMENT_LIMIT_EXCEEDED", message: "Selected file count exceeds maxFiles or is empty")
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            var results: [[String: String]] = []
+            do {
+                for url in urls { results.append(try self.copyPickerFile(url)) }
+                self.completePickerCopies(results, operation: operation)
+            } catch { self.completePickerCopies(results, operation: operation, error: error) }
+        }
+    }
+
+    public func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        guard let operation = multiplePickerOperation else { return }
+        guard !results.isEmpty else {
+            finishMultiplePicker(errorCode: "SELECT_FILE_CANCELED", message: "File selection canceled")
+            return
+        }
+        guard results.count <= multiplePickerLimit else {
+            finishMultiplePicker(errorCode: "ATTACHMENT_LIMIT_EXCEEDED", message: "Selected file count exceeds maxFiles")
+            return
+        }
+        loadMediaCopies(results, index: 0, copied: [], operation: operation)
+    }
+
+    private func loadMediaCopies(_ results: [PHPickerResult], index: Int, copied: [[String: String]], operation: UUID) {
+        guard multiplePickerOperation == operation else {
+            completePickerCopies(copied, operation: operation)
+            return
+        }
+        guard index < results.count else {
+            completePickerCopies(copied, operation: operation)
+            return
+        }
+        let provider = results[index].itemProvider
+        guard let identifier = provider.registeredTypeIdentifiers.first(where: {
+            guard let type = UTType($0) else { return false }
+            return type.conforms(to: .image) || type.conforms(to: .movie)
+        }) else {
+            completePickerCopies(copied, operation: operation, error: NSError(domain: "RnWebimChat", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unsupported media representation"]))
+            return
+        }
+        provider.loadFileRepresentation(forTypeIdentifier: identifier) { url, error in
+            guard let url, error == nil else {
+                self.completePickerCopies(copied, operation: operation, error: error ?? NSError(domain: "RnWebimChat", code: 2, userInfo: [NSLocalizedDescriptionKey: "Media file cannot be opened"]))
+                return
+            }
+            do {
+                let result = try self.copyPickerFile(url, suggestedName: provider.suggestedName)
+                DispatchQueue.main.async {
+                    self.loadMediaCopies(results, index: index + 1, copied: copied + [result], operation: operation)
+                }
+            } catch { self.completePickerCopies(copied, operation: operation, error: error) }
+        }
     }
 }
 

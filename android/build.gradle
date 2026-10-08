@@ -130,11 +130,15 @@ repositories {
 dependencies {
     //noinspection GradleDynamicVersion
   implementation "com.facebook.react:react-native:${safeExtGet('reactNativeVersion', '+')}"
-  implementation 'ru.webim.sdk:webimclientsdkandroid:4.1.4'
+  implementation('ru.webim.sdk:webimclientsdkandroid:4.1.4') {
+    attributes { attribute(Attribute.of('com.rnwebimchat.safe-upload', Boolean), true) }
+  }
   implementation platform('com.squareup.okhttp3:okhttp-bom:5.3.2')
   implementation 'com.squareup.okhttp3:okhttp-urlconnection'
   // From node_modules
 }
+
+apply from: 'sdk-upload-patch.gradle'
 
 if (isNewArchitectureEnabled()) {
   react {

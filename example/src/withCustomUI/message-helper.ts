@@ -7,13 +7,19 @@ import type {
 import type { WebimMessage } from 'rn-webim-chat';
 
 export type ChatMessage = IChatMessage & {
+  attachments: NonNullable<WebimMessage['attachments']>;
   attachmentUrl?: string;
   quote?: WebimMessage['quote'];
   webimMessage: WebimMessage;
 };
 
 export function mapWebimToChatMessage(msg: WebimMessage): ChatMessage {
-  const attachment = msg.attachment;
+  const attachments = msg.attachments?.length
+    ? msg.attachments
+    : msg.attachment
+    ? [msg.attachment]
+    : [];
+  const attachment = attachments.length === 1 ? attachments[0] : undefined;
   const isImage = attachment?.contentType.startsWith('image/') ?? false;
   const isVideo = attachment?.contentType.startsWith('video/') ?? false;
   const mappedUser: User = {
@@ -21,17 +27,6 @@ export function mapWebimToChatMessage(msg: WebimMessage): ChatMessage {
     name: msg.name,
     avatar: msg.avatar,
   };
-
-  console.log(
-    'MappedUser: ',
-    mappedUser,
-    {
-      _id: msg.name,
-      name: msg.name,
-      avatar: msg.avatar,
-    },
-    msg
-  );
 
   const keyboardButtons =
     msg.type === 'KEYBOARD' && msg.keyboard?.state === 'PENDING'
@@ -45,15 +40,15 @@ export function mapWebimToChatMessage(msg: WebimMessage): ChatMessage {
     _id: msg.id,
     quote: msg.quote,
     webimMessage: msg,
-    text: attachment ? (isImage || isVideo ? '' : attachment.name) : msg.text,
+    attachments,
+    text: attachments.length > 1 ? '' : attachment ? attachment.name : msg.text,
     createdAt: msg.time,
     sent: msg.status === 'SENT',
     pending: msg.status === 'SENDING',
     received: msg.read,
     image: isImage ? attachment?.url : undefined,
     video: isVideo ? attachment?.url : undefined,
-    attachmentUrl:
-      attachment && !isImage && !isVideo ? attachment.url : undefined,
+    attachmentUrl: attachment?.url,
     user: mappedUser,
     system:
       msg.type !== 'OPERATOR' &&
