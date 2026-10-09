@@ -690,6 +690,26 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   }
 
   @ReactMethod
+  public void resolveAttachmentUrl(String messageId, int index, Promise promise) {
+    Message message = messagesById.get(messageId);
+    if (session == null || message == null || message.getAttachment() == null) {
+      promise.reject("ATTACHMENT_UNAVAILABLE", "The attachment is not available in this session");
+      return;
+    }
+    List<Message.FileInfo> files = message.getAttachment().getFilesInfo();
+    if (files == null || index < 0 || index >= files.size()) {
+      promise.reject("ATTACHMENT_UNAVAILABLE", "The attachment is not available");
+      return;
+    }
+    String url = files.get(index).getUrl();
+    if (url == null || Uri.parse(url).getQueryParameter("hash") == null) {
+      promise.reject("ATTACHMENT_URL_NOT_READY", "File authentication is not ready");
+      return;
+    }
+    promise.resolve(url);
+  }
+
+  @ReactMethod
   public void reply(String message, String replyToId, final Promise promise) {
     Message replyTo = messagesById.get(replyToId);
     if (replyTo == null) {
@@ -833,7 +853,6 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
         public void onSuccess(Message.Id id) {
           promise.resolve(null);
         }
-
         @Override
         public void onFailure(Message.Id id, WebimError<MessageReactionError> error) {
           handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
@@ -843,6 +862,18 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
     } catch (RuntimeException e) {
       handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    }
+  }
+
+  @ReactMethod
+  public void setVisitorTyping(@Nullable String draft, final Promise promise) {
+    try {
+      session.getStream().setVisitorTyping(draft);
+      promise.resolve(null);
+    } catch (NullPointerException | IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", "Session is destroyed", false, null);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", "Typing update failed", false, null);
     }
   }
 

@@ -115,6 +115,11 @@ URLs or persist them across sessions. Repeated/busy/stale handles are rejected.
 Explicit deletion is caller-authorized; only delete when the upload is known
 not to belong to a committed message.
 
+For attachments in loaded message history, `RNWebim.resolveAttachmentUrl`
+returns the SDK-provided URL on iOS and waits for the authenticated URL on
+Android. It rejects if the message or attachment index is unavailable or the
+Android URL hash is not ready yet.
+
 ## Acceptance
 
 Verify two mixed files and a ten-file group on both devices, operator view and

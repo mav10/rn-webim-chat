@@ -17,6 +17,7 @@ abstract class WebimUploadPatchTransform implements TransformAction<TransformPar
   static byte[] stripPatchedClasses(byte[] archive) {
     def bytes = new ByteArrayOutputStream()
     def replaced = ['ru/webim/android/sdk/impl/MessageStreamImpl',
+            'ru/webim/android/sdk/impl/FileUrlCreator',
                     'ru/webim/android/sdk/impl/backend/WebimActions',
                     'ru/webim/android/sdk/impl/backend/WebimActionsImpl']
     def removed = replaced.collectEntries { [(it): 0] }
@@ -59,12 +60,14 @@ abstract class WebimUploadPatchTransform implements TransformAction<TransformPar
 }
 
 def safeUpload = Attribute.of('com.rnwebimchat.safe-upload', Boolean)
-dependencies {
-  attributesSchema { attribute(safeUpload) }
-  artifactTypes.maybeCreate('aar').attributes.attribute(safeUpload, false)
-  registerTransform(WebimUploadPatchTransform) {
-    from.attribute(safeUpload, false).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'aar')
-    to.attribute(safeUpload, true).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'aar')
+rootProject.allprojects { targetProject ->
+  targetProject.dependencies {
+    attributesSchema { attribute(safeUpload) }
+    artifactTypes.maybeCreate('aar').attributes.attribute(safeUpload, false)
+    registerTransform(WebimUploadPatchTransform) {
+      from.attribute(safeUpload, false).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'aar')
+      to.attribute(safeUpload, true).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'aar')
+    }
   }
 }
 
@@ -92,6 +95,12 @@ def generatePatch = tasks.register('generateWebimUploadPatch') {
         target.parentFile.mkdirs()
         target.setText(source, 'UTF-8')
       }
+      String urlPath = 'ru/webim/android/sdk/impl/FileUrlCreator.java'
+      String urlSource = readSource(urlPath)
+      String urlCondition = 'safeUrlEnabled != null && safeUrlEnabled && client.getAuthData() != null'
+      if (urlSource.count(urlCondition) != 1) throw new GradleException('Webim file URL signing changed; review media patch')
+      writeSource(urlPath, urlSource.replace(urlCondition, 'client.getAuthData() != null'))
+
       String streamPath = 'ru/webim/android/sdk/impl/MessageStreamImpl.java'
       String source = readSource(streamPath)
       String original = 'UploadedFile uploadedFile = InternalUtils.getUploadedFile(response);\n                            uploadFileToServerCallback.onSuccess(id, uploadedFile);'

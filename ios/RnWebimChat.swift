@@ -688,6 +688,24 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         }
     }
 
+    @objc(setVisitorTyping:withResolver:withRejecter:)
+    func setVisitorTyping(draft: String?, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard let messageStream else {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destroyed", isFatal: false)
+            return
+        }
+        do {
+            try messageStream.setVisitorTyping(draftMessage: draft)
+            resolve(nil)
+        } catch AccessError.invalidSession {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destroyed", isFatal: false)
+        } catch AccessError.invalidThread {
+            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Typing update failed", isFatal: false)
+        } catch {
+            handleError(rejecter: reject, errorCode: "TYPING_FAILED", message: "Typing update failed", isFatal: false)
+        }
+    }
+
     @objc(editMessage:withText:withResolver:withRejecter:)
     func editMessage(messageID: String, text: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         performMessageAction(messageID: messageID, resolve: resolve, reject: reject) { stream, message, handler in

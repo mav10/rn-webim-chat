@@ -59,6 +59,10 @@ RCT_EXTERN_METHOD(sendKeyboardResponse:(NSString*)messageID
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(setVisitorTyping:(NSString* _Nullable)draft
+                  withResolver:(RCTPromiseResolveBlock)resolve
+                  withRejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(editMessage:(NSString*)messageID
                   withText:(NSString*)text
                   withResolver:(RCTPromiseResolveBlock)resolve

@@ -59,11 +59,20 @@ React Native callback can reject its promise.
 `sdk-upload-patch.gradle` resolves the official Maven Central source artifact:
 `ru.webim.sdk:webimclientsdkandroid:4.1.4:sources@jar`. Its SHA-256 and the exact
 callback and method text are checked before generating replacement sources. A Gradle
-artifact transform removes `MessageStreamImpl`, `WebimActions`, `WebimActionsImpl`,
-and all their nested classes from the original AAR. Android compilation supplies
-the patched sources instead, with
+artifact transform removes `MessageStreamImpl`, `FileUrlCreator`,
+`WebimActions`, `WebimActionsImpl`, and all their nested classes from the
+original AAR. Android compilation supplies the patched sources instead, with
 all remaining SDK classes, resources, and transitive dependencies unchanged.
+The transform is registered in all projects of the consuming Gradle build so
+the app resolves the stripped SDK artifact too, rather than adding the original
+classes alongside the replacements packaged by this library.
 The upstream source and license notices remain intact in the generated source.
+
+`FileUrlCreator` is also replaced to include authenticated file URL hashes
+whenever auth data is available, regardless of the SDK's `safeUrlEnabled` flag.
+The Android bridge exposes `resolveAttachmentUrl(messageId, index, fallback)`
+to retrieve a loaded attachment URL after its hash is ready; iOS returns the
+SDK-provided fallback URL unchanged.
 
 The upload backend callback, stream routing, and success parser are replaced.
 `SafeUploadedFileResponse` accepts an

@@ -63,6 +63,29 @@ const emitter = new NativeEventEmitter<WebimNativeEventMap>(RnWebimChat);
 const DEFAULT_MESSAGES_LIMIT = 100;
 
 export class RNWebim {
+  static setVisitorTyping(draft: string | null): Promise<void> {
+    if (typeof RnWebimChat.setVisitorTyping !== 'function') {
+      return Promise.reject(new Error('NATIVE_TYPING_UPDATE_REQUIRED'));
+    }
+    return RnWebimChat.setVisitorTyping(draft)
+      .catch(webimErrorHandler)
+      .then(() => undefined);
+  }
+
+  static resolveAttachmentUrl(
+    messageId: string,
+    index: number,
+    fallback: string
+  ): Promise<string> {
+    if (Platform.OS !== 'android') return Promise.resolve(fallback);
+    if (typeof RnWebimChat.resolveAttachmentUrl !== 'function') {
+      return Promise.reject(new Error('NATIVE_MEDIA_UPDATE_REQUIRED'));
+    }
+    return RnWebimChat.resolveAttachmentUrl(messageId, index).catch(
+      webimErrorHandler
+    );
+  }
+
   static setPushToken(token: string): Promise<void> {
     if (typeof token !== 'string' || !token.trim()) {
       return Promise.reject({

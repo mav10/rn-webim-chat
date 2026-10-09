@@ -299,6 +299,13 @@ import RNWebim from 'rn-webim-chat';
 const messageId = await RNWebim.send(message);
 ```
 
+Update or clear the visitor typing draft with `setVisitorTyping`:
+
+```typescript
+await RNWebim.setVisitorTyping('I am writing a message');
+await RNWebim.setVisitorTyping(null);
+```
+
 ### Reply to a message
 
 ```typescript
