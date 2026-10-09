@@ -23,6 +23,8 @@ const file = {
   extension: 'pdf',
 };
 
+console.log('test');
+
 beforeEach(() => jest.resetAllMocks());
 
 it('selects multiple files then sends one group through the native promises', async () => {
