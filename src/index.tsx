@@ -9,6 +9,7 @@ import type {
   AttachFilesOptions,
   DialogClearedListener,
   ErrorListener,
+  LogListener,
   FileUploadingListener,
   NewMessageListener,
   Operator,
@@ -52,6 +53,7 @@ type WebimNativeEventMap = {
   [WebimEvents.CLEAR_DIALOG]: Parameters<DialogClearedListener>;
   [WebimEvents.TOKEN_UPDATED]: Parameters<TokenUpdatedListener>;
   [WebimEvents.ERROR]: Parameters<ErrorListener>;
+  [WebimEvents.LOG]: Parameters<LogListener>;
   [WebimEvents.STATE]: Parameters<StateListener>;
   [WebimEvents.UNREAD_COUNTER]: Parameters<UnreadCountListener>;
   [WebimEvents.TYPING]: Parameters<TypingListener>;
@@ -397,6 +399,11 @@ export class RNWebim {
 
   public static addErrorListener(listener: ErrorListener): WebimSubscription {
     const subscription = emitter.addListener(WebimEvents.ERROR, listener);
+    return new WebimSubscription(() => RNWebim.removeListener(subscription));
+  }
+
+  public static addLogListener(listener: LogListener): WebimSubscription {
+    const subscription = emitter.addListener(WebimEvents.LOG, listener);
     return new WebimSubscription(() => RNWebim.removeListener(subscription));
   }
 

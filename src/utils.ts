@@ -38,7 +38,7 @@ export function webimErrorHandler(
 ): WebimNativeError {
   const errorBody: WebimNativeError = {
     errorCode:
-      err?.userInfo?.errorCode || err.errorCode || err?.code || 'UNKNWON',
+      err?.userInfo?.errorCode || err?.errorCode || err?.code || 'UNKNOWN',
     message: err?.userInfo?.message || err?.message || 'Unexpected error',
     errorType: err?.userInfo?.errorType || err?.errorType || 'common',
   };

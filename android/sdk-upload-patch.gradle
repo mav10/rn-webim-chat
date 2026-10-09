@@ -1,75 +1,5 @@
-import org.gradle.api.artifacts.transform.TransformAction
-import org.gradle.api.artifacts.transform.TransformParameters
-import org.gradle.api.artifacts.transform.TransformOutputs
-import org.gradle.api.artifacts.transform.InputArtifact
-import org.gradle.api.file.FileSystemLocation
-import org.gradle.api.provider.Provider
 import java.security.MessageDigest
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
-import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
-
-abstract class WebimUploadPatchTransform implements TransformAction<TransformParameters.None> {
-  @InputArtifact
-  abstract Provider<FileSystemLocation> getInputArtifact()
-
-  static byte[] stripPatchedClasses(byte[] archive) {
-    def bytes = new ByteArrayOutputStream()
-    def replaced = ['ru/webim/android/sdk/impl/MessageStreamImpl',
-            'ru/webim/android/sdk/impl/FileUrlCreator',
-                    'ru/webim/android/sdk/impl/backend/WebimActions',
-                    'ru/webim/android/sdk/impl/backend/WebimActionsImpl']
-    def removed = replaced.collectEntries { [(it): 0] }
-    new ZipInputStream(new ByteArrayInputStream(archive)).withCloseable { input ->
-      new ZipOutputStream(bytes).withCloseable { output ->
-        ZipEntry entry
-        while ((entry = input.nextEntry) != null) {
-          def owner = replaced.find { entry.name == it + '.class' || entry.name.startsWith(it + '$') }
-          if (owner != null) {
-            removed[owner]++
-          } else {
-            output.putNextEntry(new ZipEntry(entry.name))
-            output << input
-            output.closeEntry()
-          }
-        }
-      }
-    }
-    if (removed.values().any { it == 0 }) throw new GradleException('Webim 4.1.4 replacement classes not found; review upload patch')
-    bytes.toByteArray()
-  }
-
-  @Override
-  void transform(TransformOutputs outputs) {
-    File original = inputArtifact.get().asFile
-    if (original.name != 'webimclientsdkandroid-4.1.4.aar') {
-      throw new GradleException("Upload patch requires Webim 4.1.4, received ${original.name}")
-    }
-    new ZipFile(original).withCloseable { input ->
-      new ZipOutputStream(new FileOutputStream(outputs.file('webimclientsdkandroid-4.1.4-safe-upload.aar'))).withCloseable { output ->
-        input.entries().each { entry ->
-          output.putNextEntry(new ZipEntry(entry.name))
-          byte[] contents = input.getInputStream(entry).withCloseable { it.bytes }
-          output.write(entry.name == 'classes.jar' ? stripPatchedClasses(contents) : contents)
-          output.closeEntry()
-        }
-      }
-    }
-  }
-}
-
-def safeUpload = Attribute.of('com.rnwebimchat.safe-upload', Boolean)
-rootProject.allprojects { targetProject ->
-  targetProject.dependencies {
-    attributesSchema { attribute(safeUpload) }
-    artifactTypes.maybeCreate('aar').attributes.attribute(safeUpload, false)
-    registerTransform(WebimUploadPatchTransform) {
-      from.attribute(safeUpload, false).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'aar')
-      to.attribute(safeUpload, true).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'aar')
-    }
-  }
-}
 
 configurations.create('webimUploadPatchSources') { transitive = false }
 dependencies.add('webimUploadPatchSources', 'ru.webim.sdk:webimclientsdkandroid:4.1.4:sources@jar')
@@ -77,6 +7,7 @@ def patchedSources = layout.buildDirectory.dir('generated/sources/webimUploadPat
 def generatePatch = tasks.register('generateWebimUploadPatch') {
   inputs.files(configurations.webimUploadPatchSources)
   inputs.file(file('sdk-upload-patch.gradle'))
+  inputs.file(file('sdk-artifact-transform.gradle'))
   outputs.dir(patchedSources)
   doLast {
     File archive = configurations.webimUploadPatchSources.singleFile

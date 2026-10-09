@@ -63,9 +63,10 @@ artifact transform removes `MessageStreamImpl`, `FileUrlCreator`,
 `WebimActions`, `WebimActionsImpl`, and all their nested classes from the
 original AAR. Android compilation supplies the patched sources instead, with
 all remaining SDK classes, resources, and transitive dependencies unchanged.
-The transform is registered in all projects of the consuming Gradle build so
-the app resolves the stripped SDK artifact too, rather than adding the original
-classes alongside the replacements packaged by this library.
+`sdk-artifact-transform.gradle` registers the transform in all projects of the
+consuming Gradle build. The library declares the SDK for compilation and runtime
+with the same `safe-upload` attribute, so consuming applications receive the
+stripped SDK artifact without app-level Gradle wiring or duplicate classes.
 The upstream source and license notices remain intact in the generated source.
 
 `FileUrlCreator` is also replaced to include authenticated file URL hashes

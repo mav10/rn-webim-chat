@@ -520,8 +520,23 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       promise.resolve(Arguments.createMap());
       return;
     }
-    String accountName = builderData.getString("accountName");
-    String location = builderData.getString("location");
+    final String accountName;
+    final String location;
+    try {
+      accountName = builderData.getString("accountName");
+      location = builderData.getString("location");
+    } catch (RuntimeException error) {
+      handleError(promise, "INVALID_SESSION_OPTIONS", "accountName and location must be strings", true, error);
+      return;
+    }
+    if (accountName == null || accountName.trim().isEmpty()) {
+      handleError(promise, "NULL_ACCOUNT_NAME", "accountName must be a non-empty string", true, null);
+      return;
+    }
+    if (location == null || location.trim().isEmpty()) {
+      handleError(promise, "NULL_LOCATION", "location must be a non-empty string", true, null);
+      return;
+    }
 
     // optional
     String accountJSON = builderData.hasKey("accountJSON") ? builderData.getString("accountJSON") : null;
@@ -1133,12 +1148,13 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   }
 
   private static void handleError(final Promise promise, String errorCode, String message, boolean isFatal, @Nullable Exception e) {
-    WritableMap errorBody = getErrorMap(errorCode, message, isFatal);
+    String mappedErrorCode = mapServerErrorCode(errorCode, message);
+    WritableMap errorBody = getErrorMap(mappedErrorCode, message, isFatal);
 
     if (e != null) {
-      promise.reject(errorCode, message, e, errorBody);
+      promise.reject(mappedErrorCode, message, e, errorBody);
     } else {
-      promise.reject(errorCode, message, errorBody);
+      promise.reject(mappedErrorCode, message, errorBody);
     }
   }
 
@@ -1253,10 +1269,17 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   private static WritableMap getErrorMap(String errorCode, String message, Boolean isFatal) {
     WritableMap errorBody = getSimpleMap("message", message);
-    errorBody.putString("errorCode", errorCode);
+    errorBody.putString("errorCode", mapServerErrorCode(errorCode, message));
     errorBody.putString("errorType", isFatal ? "fatal" : "common");
 
     return errorBody;
+  }
+
+  private static String mapServerErrorCode(String errorCode, String message) {
+    String serverError = message == null ? "" : message.toLowerCase(Locale.ROOT);
+    if (serverError.contains("wrong-argument-value")) return "INVALID_ARGUMENT_VALUE";
+    if (serverError.contains("account-not-found")) return "ACCOUNT_NOT_FOUND";
+    return errorCode == null || errorCode.isEmpty() ? "UNKNOWN" : errorCode;
   }
 
   private void clearAttachCallbacks() {

@@ -108,6 +108,8 @@ await RNWebim.initSession(builderParams: SessionBuilderParams)
 - accountJSON - JSON string containing server-signed visitor fields (not encrypted). See [**Start chat with user data**](#start-chat-with-user-data)
 - clearVisitorData - clear visitor data before start chat
 - storeHistoryLocally - cache messages in local store
+- historyTimeoutMs - iOS timeout for `getLastMessages` and `getNextMessages` in milliseconds (default `18000`, range `1-20000`). On timeout, the promise rejects with `HISTORY_TIMEOUT`; late SDK callbacks are ignored. This does not disable local history or silently change the session configuration.
+- debug - enable verbose iOS Webim SDK logs. Subscribe with `RNWebim.addLogListener`; logs can contain request/response data, so enable only for controlled diagnostics and avoid forwarding them to public logs.
 - title - title for chat in webim web panel
 - providedAuthorizationToken - user token. Session will not start with wrong token. Read webim documentation
 - pushToken - native APNs hexadecimal device token on iOS, FCM registration token on Android. Do not use an FCM token for direct iOS APNs.
@@ -164,6 +166,10 @@ external modes, native forwarding, localized defaults, and cold-start routing.
 ### Resume session
 
 If you have already initialized a session you should **resume** it to consume and send messages, get actual information by listeners etc.
+On iOS the returned promise waits for the SDK connection and rejects with
+`SESSION_RESUME_TIMEOUT` if it is not connected within 20 seconds. On Android,
+the SDK exposes no equivalent connection-completion callback, so the promise
+resolves once the synchronous resume request has been accepted.
 
 **NOTE:** _After that execution operator on web chat will get message that user opens a chat._
 
@@ -209,6 +215,7 @@ Supported events (`WebimEvents`):
 - WebimEvents.CLEAR_DIALOG;
 - WebimEvents.TOKEN_UPDATED;
 - WebimEvents.ERROR;
+- WebimEvents.LOG (iOS SDK diagnostics; enabled with `debug: true`);
 - WebimEvents.STATE;
 - WebimEvents.UNREAD_COUNTER;
 - WebimEvents.TYPING;
@@ -226,6 +233,23 @@ const { messages } = await RNWebim.getNextMessages(limit);
 // or
 const { messages } = await RNWebim.getAllMessages();
 ```
+
+On iOS, `getLastMessages` and `getNextMessages` reject with
+`{ errorCode: 'HISTORY_TIMEOUT', message, errorType: 'fatal' }` after
+`historyTimeoutMs` if the SDK does not invoke its completion. The default
+18-second timeout bounds a stalled local history read; it does not prove that
+the underlying SQLite history is healthy. For diagnosis, initialize with
+`debug: true` and subscribe to `RNWebim.addLogListener`. If local history hangs,
+record SDK/device/account configuration and retry only after explicitly
+destroying and rebuilding the session with `storeHistoryLocally: false` if
+server-side history is acceptable for the product. The library does not switch
+storage modes automatically.
+
+Native errors and `error` events use `{ errorCode, message, errorType }`.
+Known server codes `wrong-argument-value` and `account-not-found` map to
+`INVALID_ARGUMENT_VALUE` and `ACCOUNT_NOT_FOUND`; `message` retains the SDK's
+original text. Fatal and non-fatal SDK callbacks are forwarded to
+`RNWebim.addErrorListener`.
 
 **Message type**
 

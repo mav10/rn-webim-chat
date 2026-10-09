@@ -3,6 +3,77 @@ import Foundation
 import UniformTypeIdentifiers
 import PhotosUI
 
+private final class RnWebimPromiseRequest {
+    private let lock = NSLock()
+    private var isCompleted = false
+    private var timeoutWorkItem: DispatchWorkItem?
+    private let resolve: RCTPromiseResolveBlock
+    private let reject: RCTPromiseRejectBlock
+    private let timeoutCode: String
+    private let timeoutMessage: String
+    private let onCompletion: (() -> Void)?
+
+    init(
+        timeoutMs: Int,
+        timeoutCode: String = "HISTORY_TIMEOUT",
+        timeoutMessage: String? = nil,
+        onCompletion: (() -> Void)? = nil,
+        resolve: @escaping RCTPromiseResolveBlock,
+        reject: @escaping RCTPromiseRejectBlock
+    ) {
+        self.resolve = resolve
+        self.reject = reject
+        self.timeoutCode = timeoutCode
+        self.timeoutMessage = timeoutMessage ?? "Loading message history timed out after \(timeoutMs) ms"
+        self.onCompletion = onCompletion
+
+        let timeoutWorkItem = DispatchWorkItem { [self] in
+            fail(code: self.timeoutCode, message: self.timeoutMessage)
+        }
+        self.timeoutWorkItem = timeoutWorkItem
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + .milliseconds(timeoutMs), execute: timeoutWorkItem)
+    }
+
+    func succeed(_ value: Any?) {
+        finish { resolve(value) }
+    }
+
+    func fail(code: String, message: String, error: Error? = nil) {
+        finish {
+            var body: [String: Any] = [
+                "errorCode": code,
+                "message": message,
+                "errorType": "fatal",
+            ]
+            if let error = error {
+                body[NSUnderlyingErrorKey] = error
+            }
+            let rejectionError = NSError(
+                domain: "com.rn-webim-chat.provider",
+                code: -1,
+                userInfo: body
+            )
+            reject(code, message, rejectionError)
+        }
+    }
+
+    private func finish(_ completion: () -> Void) {
+        lock.lock()
+        guard !isCompleted else {
+            lock.unlock()
+            return
+        }
+        isCompleted = true
+        let timeout = timeoutWorkItem
+        timeoutWorkItem = nil
+        lock.unlock()
+
+        timeout?.cancel()
+        onCompletion?()
+        completion()
+    }
+}
+
 private final class RnWebimAttachmentCompletionHandler: NSObject, UploadFileToServerCompletionHandler, SendFilesCompletionHandler, DeleteUploadedFileCompletionHandler {
     var uploaded: ((UploadedFile) -> Void)?
     var sent: ((String) -> Void)?
@@ -106,7 +177,7 @@ private final class RnWebimMessageActionCompletionHandler: NSObject, EditMessage
 }
 
 @objc(RnWebimChat)
-open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, FatalErrorHandler, NotFatalErrorHandler {
+open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener, UnreadByVisitorMessageCountChangeListener, FatalErrorHandler, NotFatalErrorHandler, WebimLogger {
     
     var chatSession: WebimSession?
     var messageStream: MessageStream!
@@ -137,6 +208,9 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     private weak var multiplePickerController: UIViewController?
     private var pendingPushToken: String?
     private var pushSystem = "none"
+    private var historyTimeoutMs = 18_000
+    private var isServerConnected = false
+    private var pendingResume: RnWebimPromiseRequest?
 
     @objc(setPushToken:withResolver:withRejecter:)
     func setPushToken(token: String, resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
@@ -332,14 +406,44 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
 
     @objc(initSession:withResolver:withRejecter:)
     func initSession(builderData: NSDictionary, resolve:RCTPromiseResolveBlock, reject:RCTPromiseRejectBlock) -> Void {
+        guard let accountName = builderData["accountName"] as? String, !accountName.isEmpty else {
+            handleError(rejecter: reject, errorCode: "NULL_ACCOUNT_NAME", message: "accountName must be a non-empty string", isFatal: true)
+            return
+        }
+        guard let location = builderData["location"] as? String, !location.isEmpty else {
+            handleError(rejecter: reject, errorCode: "NULL_LOCATION", message: "location must be a non-empty string", isFatal: true)
+            return
+        }
+        if builderData["historyTimeoutMs"] != nil && !(builderData["historyTimeoutMs"] is NSNumber) {
+            handleError(rejecter: reject, errorCode: "INVALID_HISTORY_TIMEOUT", message: "historyTimeoutMs must be a number", isFatal: true)
+            return
+        }
+        let configuredHistoryTimeout = (builderData["historyTimeoutMs"] as? NSNumber)?.intValue ?? 18_000
+        guard (1...20_000).contains(configuredHistoryTimeout) else {
+            handleError(rejecter: reject, errorCode: "INVALID_HISTORY_TIMEOUT", message: "historyTimeoutMs must be between 1 and 20000", isFatal: true)
+            return
+        }
+        historyTimeoutMs = configuredHistoryTimeout
+
         if(chatSession == nil) {
+            isServerConnected = false
             var sessionBuilder = Webim.newSessionBuilder();
 
             sessionBuilder = sessionBuilder
-                .set(accountName:  builderData.value(forKey: "accountName") as! String)
-                .set(location: builderData.value(forKey: "location") as! String)
+                .set(accountName: accountName)
+                .set(location: location)
                 .set(onlineStatusRequestFrequencyInMillis: 1500)
-                .set(remoteNotificationSystem: .none);
+                .set(remoteNotificationSystem: .none)
+                .set(fatalErrorHandler: self)
+                .set(notFatalErrorHandler: self);
+
+            if (builderData["debug"] as? Bool) == true {
+                sessionBuilder = sessionBuilder.set(
+                    webimLogger: self,
+                    verbosityLevel: .debug,
+                    availableLogTypes: [.networkRequest, .messageHistory, .manualCall, .undefined]
+                )
+            }
 
             // Optional
             let accountJSONAsString: String? = builderData.value(forKey: "accountJSON") as? String;
@@ -400,7 +504,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             do {
                 chatSession = try sessionBuilder.build()
             } catch let error as SessionBuilder.SessionBuilderError {
-                var errorCode = "UNKWNOWN"
+                var errorCode = "UNKNOWN"
                 switch error {
                 case .nilAccountName:
                     errorCode = "NULL_ACCOUNT_NAME"
@@ -459,23 +563,53 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
   }
 
     @objc(resumeSession:withRejecter:)
-    func resumeSession(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+    func resumeSession(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         do {
-            try chatSession?.resume()
-            resolve(nil)
+            guard let chatSession = chatSession else {
+                handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is not initialized", isFatal: true)
+                return
+            }
+            guard pendingResume == nil else {
+                handleError(rejecter: reject, errorCode: "SESSION_RESUME_IN_PROGRESS", message: "A session resume request is already waiting for connection", isFatal: true)
+                return
+            }
+            let request = RnWebimPromiseRequest(
+                timeoutMs: 20_000,
+                timeoutCode: "SESSION_RESUME_TIMEOUT",
+                timeoutMessage: "Webim session did not connect within 20000 ms",
+                onCompletion: { [weak self] in self?.pendingResume = nil },
+                resolve: resolve,
+                reject: reject
+            )
+            pendingResume = request
+            try chatSession.resume()
+            if isServerConnected {
+                pendingResume = nil
+                request.succeed(nil)
+            }
         } catch AccessError.invalidSession {
-            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+            pendingResume?.fail(code: "NULL_SESSION", message: "Session is destoyed")
+            pendingResume = nil
         } catch AccessError.invalidThread {
-            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+            pendingResume?.fail(code: "WRONG_SESSION", message: "Session is not initialized in current thread")
+            pendingResume = nil
         } catch let error {
-            handleError(rejecter: reject, errorCode: "UNKNOWN", message: error.localizedDescription, isFatal: true)
+            pendingResume?.fail(code: "UNKNOWN", message: error.localizedDescription, error: error)
+            pendingResume = nil
         }
     }
 
     @objc(pauseSession:withRejecter:)
     func pauseSession(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
         do {
-            try chatSession?.pause()
+            guard let chatSession = chatSession else {
+                handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is not initialized", isFatal: true)
+                return
+            }
+            try chatSession.pause()
+            pendingResume?.fail(code: "SESSION_PAUSED", message: "Session was paused before connection completed")
+            pendingResume = nil
+            isServerConnected = false
             resolve(nil)
         } catch AccessError.invalidSession {
             handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
@@ -489,6 +623,8 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     @objc(destroySession:withResolver:withRejecter:)
     func destroySession(clearuserData: Bool, resolve:RCTPromiseResolveBlock, reject:RCTPromiseRejectBlock) -> Void {
         clearAttachmentState()
+        pendingResume?.fail(code: "SESSION_DESTROYED", message: "Session was destroyed before connection completed")
+        pendingResume = nil
         if(messageTracker != nil) {
             do {
                 try messageTracker?.destroy()
@@ -529,6 +665,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
         messageStream = nil
         pendingPushToken = nil
         pushSystem = "none"
+        isServerConnected = false
         messagesLock.lock()
         messagesByID.removeAll()
         messagesLock.unlock()
@@ -558,42 +695,52 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     }
 
     @objc(getLastMessages:withResolver:withRejecter:)
-    func getLastMessages(limit: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
+    func getLastMessages(limit: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
+        guard let messageTracker = messageTracker else {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Message history is unavailable because the session is not initialized", isFatal: true)
+            return
+        }
+        let request = RnWebimPromiseRequest(timeoutMs: historyTimeoutMs, resolve: resolve, reject: reject)
         do {
-            try messageTracker?.getLastMessages(byLimit: limit.intValue, completion: { result in
+            try messageTracker.getLastMessages(byLimit: limit.intValue, completion: { result in
                 var messages: [[String: Any]] = []
                 for message in result {
                     messages.append(self.messageToJson(message: message) as [String : Any])
                 }
 
-                resolve(messages)
+                request.succeed(messages)
             })
         } catch AccessError.invalidSession {
-            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+            request.fail(code: "NULL_SESSION", message: "Session is destoyed")
         } catch AccessError.invalidThread {
-            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+            request.fail(code: "WRONG_SESSION", message: "Session is not initialized in current thread")
         } catch let error {
-            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not fetch last messages. Details: " + error.localizedDescription, isFatal: true)
+            request.fail(code: "UNKNOWN", message: "Can not fetch last messages. Details: " + error.localizedDescription, error: error)
         }
     }
 
     @objc(getNextMessages:withResolver:withRejecter:)
-    func getNextMessages(limit: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
+    func getNextMessages(limit: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
+        guard let messageTracker = messageTracker else {
+            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Message history is unavailable because the session is not initialized", isFatal: true)
+            return
+        }
+        let request = RnWebimPromiseRequest(timeoutMs: historyTimeoutMs, resolve: resolve, reject: reject)
         do {
-            try messageTracker?.getNextMessages(byLimit: limit.intValue, completion: { result in
+            try messageTracker.getNextMessages(byLimit: limit.intValue, completion: { result in
                 var messages: [[String: Any]] = []
                 for message in result {
                     messages.append(self.messageToJson(message: message) as [String : Any])
                 }
 
-                resolve(messages)
+                request.succeed(messages)
             })
         } catch AccessError.invalidSession {
-            handleError(rejecter: reject, errorCode: "NULL_SESSION", message: "Session is destoyed", isFatal: true)
+            request.fail(code: "NULL_SESSION", message: "Session is destoyed")
         } catch AccessError.invalidThread {
-            handleError(rejecter: reject, errorCode: "WRONG_SESSION", message: "Session is not initialized in current thread", isFatal: true)
+            request.fail(code: "WRONG_SESSION", message: "Session is not initialized in current thread")
         } catch let error {
-            handleError(rejecter: reject, errorCode: "UNKNOWN", message: "Can not fetch next messages. Details: " + error.localizedDescription, isFatal: true)
+            request.fail(code: "UNKNOWN", message: "Can not fetch next messages. Details: " + error.localizedDescription, error: error)
         }
     }
 
@@ -907,7 +1054,7 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     // EventEmitter Events
     @objc(supportedEvents)
     override open func supportedEvents() -> [String] {
-        return ["newMessage", "removeMessage", "changedMessage", "allMessagesRemoved", "tokenUpdated", "error", "onlineState", "typing", "unreadCount", "fileUploading"]
+        return ["newMessage", "removeMessage", "changedMessage", "allMessagesRemoved", "tokenUpdated", "error", "log", "onlineState", "typing", "unreadCount", "fileUploading"]
     }
 
     public func added(message newMessage: Message, after previousMessage: Message?) {
@@ -945,12 +1092,18 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     
     // Error Handling
     public func on(error: WebimError) {
-        self.sendEvent(withName: "error", body: getErrorObject(errorCode: self.fatalErrorToString(error: error.getErrorType()),
+        let errorCode = mapServerErrorCode(errorCode: self.fatalErrorToString(error: error.getErrorType()), message: error.getErrorString())
+        pendingResume?.fail(code: errorCode, message: error.getErrorString())
+        pendingResume = nil
+        self.sendEvent(withName: "error", body: getErrorObject(errorCode: mapServerErrorCode(
+            errorCode: errorCode,
+            message: error.getErrorString()
+        ),
                                                                message: error.getErrorString(), isFatal: true))
     }
     
     public func on(error: WebimNotFatalError) {
-        var errorCode = "UNKWNOWN";
+        var errorCode = "UNKNOWN";
         switch error.getErrorType() {
         case .noNetworkConnection:
             errorCode = "NO_NETWORK_CONNECTION"
@@ -959,11 +1112,24 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             errorCode = "SOCKET_TIMEOUT_EXPIRED"
             break
         }
-        self.sendEvent(withName: "error", body: getErrorObject(errorCode: errorCode, message: error.getErrorString(), isFatal: false))
+        self.sendEvent(withName: "error", body: getErrorObject(
+            errorCode: mapServerErrorCode(errorCode: errorCode, message: error.getErrorString()),
+            message: error.getErrorString(),
+            isFatal: false
+        ))
     }
     
     public func connectionStateChanged(connected: Bool) {
+        isServerConnected = connected
+        if connected {
+            pendingResume?.succeed(nil)
+            pendingResume = nil
+        }
         self.sendEvent(withName: "error", body: getErrorObject(errorCode: connected ? "SERVER_CONNECTED" : "SERVER_DISCONNECTED", message: "Server connection state changed", isFatal: false))
+    }
+
+    public func log(entry: String) {
+        self.sendEvent(withName: "log", body: ["message": entry])
     }
 
     // Mapping section
@@ -1126,6 +1292,17 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
             return "WRONG_PROVIDED_VISITOR_HASH"
         }
     }
+
+    private func mapServerErrorCode(errorCode: String, message: String) -> String {
+        let serverError = message.lowercased()
+        if serverError.contains("wrong-argument-value") {
+            return "INVALID_ARGUMENT_VALUE"
+        }
+        if serverError.contains("account-not-found") {
+            return "ACCOUNT_NOT_FOUND"
+        }
+        return errorCode
+    }
     
     func sendErrorToString(error: SendFileError) -> String {
         switch error {
@@ -1153,9 +1330,10 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     }
     
     func getErrorObject(errorCode: String, message: String, isFatal: Bool) -> [String: Any?] {
+        let mappedErrorCode = mapServerErrorCode(errorCode: errorCode, message: message)
         let result = [
             "message": message,
-            "errorCode": errorCode,
+            "errorCode": mappedErrorCode,
             "errorType": isFatal ? "fatal" : "common",
         ] as [String : Any?]
 
@@ -1163,8 +1341,9 @@ open class RnWebimChat: RCTEventEmitter, MessageListener, OperatorTypingListener
     }
     
     func handleError(rejecter: RCTPromiseRejectBlock, errorCode: String, message: String, isFatal: Bool) {
-        let errorBody = getErrorObject(errorCode: errorCode, message: message, isFatal: isFatal)
-        rejecter(errorCode, message, NSError.init(domain: "com.rn-webim-chat.provider", code: -1, userInfo: errorBody))
+        let mappedErrorCode = mapServerErrorCode(errorCode: errorCode, message: message)
+        let errorBody = getErrorObject(errorCode: mappedErrorCode, message: message, isFatal: isFatal)
+        rejecter(mappedErrorCode, message, NSError.init(domain: "com.rn-webim-chat.provider", code: -1, userInfo: errorBody))
     }
 }
 
@@ -1183,7 +1362,7 @@ class RateCompletionWrapper : RateOperatorCompletionHandler {
     }
 
     func onFailure(error: RateOperatorError) {
-        var code = "UNKWNOWN"
+        var code = "UNKNOWN"
         switch error {
         case .noChat:
             code = "NO_CHAT"

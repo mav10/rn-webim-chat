@@ -9,6 +9,10 @@ export type SessionBuilderParams = {
   appVersion?: string;
   clearVisitorData?: boolean;
   storeHistoryLocally?: boolean;
+  /** iOS history request timeout in milliseconds (1-20000, default 18000). */
+  historyTimeoutMs?: number;
+  /** Enable verbose Webim SDK logs, delivered through RNWebim.addLogListener. */
+  debug?: boolean;
   title?: string;
   pushToken?: string;
   pushSystem?: 'none' | 'apns' | 'fcm';
@@ -22,6 +26,7 @@ export enum WebimEvents {
   CLEAR_DIALOG = 'allMessagesRemoved',
   TOKEN_UPDATED = 'tokenUpdated',
   ERROR = 'error',
+  LOG = 'log',
   STATE = 'onlineState',
   UNREAD_COUNTER = 'unreadCount',
   TYPING = 'typing',
@@ -149,6 +154,7 @@ export type RemoveMessageListener = (data: WebimMessage) => void;
 export type DialogClearedListener = () => void;
 export type TokenUpdatedListener = (token: string) => void;
 export type ErrorListener = (error: WebimNativeError) => void;
+export type LogListener = (entry: { message: string }) => void;
 export type StateListener = (state: { old: string; new: string }) => void;
 export type TypingListener = (state: { isTyping: boolean }) => void;
 export type UnreadCountListener = (state: number) => void;
@@ -165,6 +171,7 @@ export type WebimEventListener =
   | DialogClearedListener
   | TokenUpdatedListener
   | ErrorListener
+  | LogListener
   | StateListener
   | TypingListener
   | UnreadCountListener
