@@ -1,0 +1,9 @@
+lib/
+android/build/
+example/android/build/
+example/ios/build/
+example/ios/Pods/
+graphify-out/
+example/graphify-out/
+packages/notifications/lib/
+packages/notifications/.core-contract/

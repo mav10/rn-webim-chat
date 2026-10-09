@@ -1,81 +1,164 @@
-import React, { useMemo, useState } from 'react';
-import * as AppConfig from '../package.json';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SimpleChatExample } from './simple';
 import { CustomChat } from './withCustomUI';
+import { TelegramChatExample } from './telegram';
+import { PizzaChatExample } from './pizza';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-const PRIVATE_KEY = '15e4a2c08c0822b79a8b5b0f851c5ac4';
 const CHAT_SERVICE_ACCOUNT = 'comrnwebimchatexample001';
-
-const acc = {
-  fields: {
-    id: 'custom-id',
-    display_name: AppConfig.name,
-    avatar_url: 'https://i.pravatar.cc/300',
-    phone: '+79000000000',
-    address: 'Томск',
-    info: 'Some additional text info',
-  },
-  hash: '',
-};
+const examples = [
+  { id: 'SIMPLE', label: 'Simple' },
+  { id: 'CUSTOM', label: 'Custom' },
+  { id: 'TELEGRAM', label: 'Telegram' },
+  { id: 'PIZZA', label: 'Figma' },
+] as const;
+type Example = (typeof examples)[number]['id'];
 
 export default function App() {
-  const [chatUI, setChatUI] = useState<'SIMPLE' | 'CUSTOM' | null>(null);
+  const [chatUI, setChatUI] = useState<Example>('CUSTOM');
+  const [chooserVisible, setChooserVisible] = useState(false);
 
-  const content = useMemo(() => {
+  const renderContent = () => {
     switch (chatUI) {
       case 'SIMPLE':
-        return (
-          <SimpleChatExample
-            chatAccount={CHAT_SERVICE_ACCOUNT}
-            privateKey={PRIVATE_KEY}
-            userFields={acc}
-          />
-        );
+        return <SimpleChatExample chatAccount={CHAT_SERVICE_ACCOUNT} />;
       case 'CUSTOM':
+        return <CustomChat chatAccount={CHAT_SERVICE_ACCOUNT} />;
+      case 'TELEGRAM':
         return (
-          <CustomChat
-            privateKey={PRIVATE_KEY}
+          <TelegramChatExample
             chatAccount={CHAT_SERVICE_ACCOUNT}
-            userFields={acc}
+            onBack={() => setChatUI('CUSTOM')}
+            onChooseExample={() => setChooserVisible(true)}
           />
         );
-      default:
-        return <Text>Not selected UI</Text>;
+      case 'PIZZA':
+        return <PizzaChatExample chatAccount={CHAT_SERVICE_ACCOUNT} />;
     }
-  }, [chatUI]);
+  };
+  const chooseExample = (next: Example) => {
+    setChatUI(next);
+    setChooserVisible(false);
+  };
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.safeAre}>
-        <View style={styles.header}>
-          <Button title={'Simple'} onPress={() => setChatUI('SIMPLE')} />
-          <Button title={'Custom'} onPress={() => setChatUI('CUSTOM')} />
-        </View>
-        <View style={styles.container}>{content}</View>
-      </SafeAreaView>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <StatusBar barStyle="dark-content" />
+        <SafeAreaView style={styles.safeAre}>
+          <View style={styles.header}>
+            {examples.map((example) => (
+              <Pressable
+                key={example.id}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: chatUI === example.id }}
+                onPress={() => chooseExample(example.id)}
+                style={[
+                  styles.exampleTab,
+                  chatUI === example.id && styles.activeTab,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.exampleLabel,
+                    chatUI === example.id && styles.activeLabel,
+                  ]}
+                >
+                  {example.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.container}>{renderContent()}</View>
+          <Modal
+            visible={chooserVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setChooserVisible(false)}
+          >
+            <View style={styles.scrim}>
+              <Pressable
+                accessibilityLabel="Close example chooser"
+                style={StyleSheet.absoluteFill}
+                onPress={() => setChooserVisible(false)}
+              />
+              <View style={styles.chooser}>
+                {examples.map((example) => (
+                  <Pressable
+                    key={example.id}
+                    onPress={() => chooseExample(example.id)}
+                    style={styles.chooserRow}
+                  >
+                    <Text style={styles.chooserLabel}>{example.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          </Modal>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   safeAre: {
-    flexGrow: 1,
-    backgroundColor: '#ffb114',
+    flex: 1,
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignContent: 'center',
-
-    paddingHorizontal: 16,
-    minHeight: 60,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    height: 44,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e2e7e9',
   },
   container: {
     flex: 1,
     justifyContent: 'center',
     backgroundColor: '#fefefe',
   },
-  placeholder: {},
+  exampleTab: {
+    flex: 1,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: { borderBottomColor: '#248bc4' },
+  exampleLabel: { fontSize: 12, color: '#6d767b' },
+  activeLabel: { color: '#167ab0', fontWeight: '700' },
+  scrim: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  chooser: {
+    width: '80%',
+    maxWidth: 360,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    paddingVertical: 8,
+  },
+  chooserRow: {
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  chooserLabel: { fontSize: 16, color: '#2a2a2a' },
 });

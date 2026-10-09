@@ -4,14 +4,15 @@ Implementation of [webim sdk](https://webim.ru/) for [react-native](https://gith
 
 _Inspired by [volga-volga/react-native-webim](https://github.com/volga-volga/react-native-webim)_
 
-
 <!-- BADGES/ -->
 
 [![Package publish](https://github.com/mav10/rn-webim-chat/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/mav10/rn-webim-chat/actions/workflows/npm-publish.yml)
 <span class="badge-npmversion"><a href="https://www.npmjs.com/package/rn-webim-chat" title="View this project on NPM"><img src="https://badge.fury.io/js/rn-webim-chat.svg" alt="NPM version" /></a></span>
 <span class="badge-npmdownloads"><a href="https://www.npmjs.com/package/rn-webim-chat" title="View this project on NPM"><img alt="npm" src="https://img.shields.io/npm/dm/rn-webim-chat"></a></span>
+
 <!-- /BADGES -->
-___
+
+---
 
 ## Platforms:
 
@@ -22,21 +23,26 @@ ___
 ![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=ios&logoColor=white)
 
 ## Installation
-- Requires React Native version 0.60.0, or later.
-- Supports iOS 10.0, or later.
+
+- Validated with React Native 0.87.1 and the New Architecture enabled in the example. The native module continues to use React Native's legacy-module interop and does not require TurboModule codegen.
+- Requires iOS 15.1 or later.
+- The example pins Webim Android SDK 4.1.4 and iOS SDK 4.0.1.
 
 Via NPM
+
 ```sh
 npm install rn-webim-chat
 ```
 
 Via Yarn
+
 ```sh
 yarn add rn-webim-chat
 ```
 
 #### :iphone:iOS (_Extra steps_)
-- add `WebimClientLibrary` to Podfile with specific version (_Wrapper was written for v3.37.4_)
+
+- add `WebimMobileSDK` to Podfile with the version used by this wrapper (`4.0.1`)
 - pod install
 
 see [example Podfile](./example/ios/Podfile)
@@ -44,15 +50,18 @@ see [example Podfile](./example/ios/Podfile)
 Since the official [WebimClientLibrary](https://github.com/webim/webim-client-sdk-ios) is written is Swift, you need to have Swift enabled in your iOS project. If you already have any .swift files, you are good to go. Otherwise, create a new empty Swift source file in Xcode, and allow it to create the neccessary bridging header when prompted.
 
 ## Example
+
 In [example folder](./example) there is simple workflow how to:
- - Start and destroy session
- - Resume and Pause session
- - Get and Send messages
- - Rate operator
- - Handle errors
+
+- Start and destroy session
+- Resume and Pause session
+- Get and Send messages
+- Rate operator
+- Handle errors
 
 How it looks like you can see here
 It is achieved with [simple UI](./example/src/simple) (just test common methods)
+
 <table align="Center">
   <tr>
     <td>Not init session</td>
@@ -63,7 +72,6 @@ It is achieved with [simple UI](./example/src/simple) (just test common methods)
     <td><img src="doc/messages.png" width=400 height=760></td>
   </tr>
  </table>
-
 
 <table align="Center">
   <tr>
@@ -79,28 +87,79 @@ It is achieved with [simple UI](./example/src/simple) (just test common methods)
 ![](doc/chat.png)
 
 _Also there is another [example with chat UI](./example/src/withCustomUI) [`react-native-gifted-chat`](https://github.com/FaridSafi/react-native-gifted-chat)_
+
 ## Methods
 
 **Important:** All methods are promise based and can throw exceptions.
 List of error codes will be provided later as get COMMON for both platform.
+
 ### Init chat
 
- ```ts
+```ts
 import { RNWebim } from 'rn-webim-chat';
 
 await RNWebim.initSession(builderParams: SessionBuilderParams)
 ```
+
 **SessionBuilderParams:**
+
 - accountName (required) - name of your account in webim system
 - location (required) - name of location. For example "mobile"
-- accountJSON - encrypted json with user data. See [**Start chat with user data**](#start-chat-with-user-data)
+- accountJSON - JSON string containing server-signed visitor fields (not encrypted). See [**Start chat with user data**](#start-chat-with-user-data)
 - clearVisitorData - clear visitor data before start chat
 - storeHistoryLocally - cache messages in local store
 - title - title for chat in webim web panel
 - providedAuthorizationToken - user token. Session will not start with wrong token. Read webim documentation
-- pushToken - FCM token is enough - but Apple pushes will come through APN, so you are not able to process them in app by default.
+- pushToken - native APNs hexadecimal device token on iOS, FCM registration token on Android. Do not use an FCM token for direct iOS APNs.
+- pushSystem - `none`, `apns` (iOS), or `fcm` (Android). Set it before a token is available; use `RNWebim.setPushToken(token)` when registration or refresh completes.
 - appVersion - version of your Application
 - prechat - some additional fields to prechat
+
+### Multiple Attachments
+
+These APIs are implemented in the current source, not the previously published
+2.2.1 package. Each group becomes **one message**, not one message per file.
+Both SDKs support up to 10 uploaded files, subject to Webim server support and
+account limits. Verify this on your account before enabling grouped selection.
+
+```ts
+const files = await RNWebim.tryAttachFiles({ kind: 'documents', maxFiles: 10 });
+const message = await RNWebim.sendFiles(files, {
+  onProgress: ({ completedFiles, totalFiles, phase }) => {
+    updateUploadState({ completedFiles, totalFiles, phase });
+  },
+});
+```
+
+Use `kind: 'media'` for photos/videos, or pass your own local files directly to
+`sendFiles`. `tryAttachAndSendFiles(options)` combines selection and sending.
+Messages include `attachments[]`; `attachment` remains the first-file alias.
+Existing single-file methods remain available. See [attachment lifecycle](doc/attachments.md)
+for cancellation, retry, low-level upload handles, and uncertain commit errors.
+
+### Push Notifications
+
+Core exports `normalizeWebimNotification` and `createWebimNotificationController`
+for integration with an existing notification stack. The optional companion
+under [packages/notifications](packages/notifications/README.md) supplies Notifee
+display/events, direct APNs forwarding, and an Android Firebase adapter. It is
+not a dependency of the core, and neither package provides a chat UI.
+
+```ts
+await RNWebim.initSession({
+  accountName: 'your-account',
+  location: 'mobile',
+  pushSystem: Platform.OS === 'ios' ? 'apns' : 'fcm',
+});
+// Forward the actual platform device token, including refresh:
+await RNWebim.setPushToken(deviceToken);
+```
+
+iOS background notifications use Webim localization keys in the host app's
+main bundle. Notifee does not replace APNs registration or rewrite background
+content through JavaScript. The text/sound/open-chat recipe needs no notification
+service extension. See [notification setup](doc/notifications.md) for ready and
+external modes, native forwarding, localized defaults, and cold-start routing.
 
 ### Resume session
 
@@ -108,10 +167,10 @@ If you have already initialized a session you should **resume** it to consume an
 
 **NOTE:** _After that execution operator on web chat will get message that user opens a chat._
 
- ```ts
+```ts
 import { RNWebim } from 'rn-webim-chat';
 
-await RNWebim.resumeSession()
+await RNWebim.resumeSession();
 ```
 
 ### Pause session
@@ -119,31 +178,31 @@ await RNWebim.resumeSession()
 If you have already initialized a session you should **resume** it to consume and send messages, get actual information by listeners etc.
 After that execution operator on web chat will get message that user opens a chat.
 
- ```ts
+```ts
 import { RNWebim } from 'rn-webim-chat';
 
-await RNWebim.pauseSession()
+await RNWebim.pauseSession();
 ```
-
 
 ### Init events listeners
 
 ```js
-import { RNWebim,  WebimEvents} from 'rn-webim-chat';
+import { RNWebim, WebimEvents } from 'rn-webim-chat';
 
-const listener = RNWebim.addNewMessageListener(({ msg }) => {
+const listener = RNWebim.addNewMessageListener((msg) => {
   // do something
 });
 // usubscribe
 listener.remove();
 
 // or
-const listener2 = RNWebim.addListener(WebimEvents.NEW_MESSAGE, ({ msg }) => {
-    // do something
+const listener2 = RNWebim.addListener(WebimEvents.NEW_MESSAGE, (msg) => {
+  // do something
 });
 ```
 
 Supported events (`WebimEvents`):
+
 - WebimEvents.NEW_MESSAGE;
 - WebimEvents.REMOVE_MESSAGE;
 - WebimEvents.EDIT_MESSAGE;
@@ -157,6 +216,7 @@ Supported events (`WebimEvents`):
 - ~~WebimEvents.FILE_UPLOADING_PROGRESS;~~
 
 ### Get messages
+
 As you called `getAllMessages` after that you should call `nextMessages` as reading "all messages" during the same session will get no result (native implementation uses holder and cursor by last loaded message)
 
 ```js
@@ -168,6 +228,7 @@ const { messages } = await RNWebim.getAllMessages();
 ```
 
 **Message type**
+
 ```typescript
 export type WebimMessage = {
   id: string;
@@ -180,20 +241,29 @@ export type WebimMessage = {
   status: 'SENT' | 'SENDING';
   read: boolean;
   canEdit: boolean;
-  carReply: boolean;
+  canReply: boolean;
   isEdited: boolean;
   canReact: boolean;
   canChangeReaction: boolean;
   visitorReaction?: string;
   stickerId?: number;
+  keyboard?: {
+    buttons: Array<Array<{ id: string; text: string }>>;
+    state: 'PENDING' | 'COMPLETED' | 'CANCELED' | 'CANCELLED';
+    response?: string;
+  };
+  keyboardRequest?: {
+    button?: { id: string; text: string };
+    messageId?: string;
+  };
   quote?: Quote;
   attachment?: WebimAttachment;
   operatorId?: string;
-}
-
+};
 ```
 
 **Quote type**
+
 ```typescript
 export type Quote = {
   authorId?: string;
@@ -206,7 +276,9 @@ export type Quote = {
   attachment?: WebimAttachment;
 };
 ```
+
 **Included attachment**
+
 ```typescript
 export interface WebimAttachment {
   contentType: string;
@@ -216,6 +288,7 @@ export interface WebimAttachment {
   url: string;
 }
 ```
+
 Note: method `getAllMessages` works strange on iOS, and sometimes returns empty array. We recommend to use `getLastMessages` instead
 
 ### Send text message
@@ -226,7 +299,51 @@ import RNWebim from 'rn-webim-chat';
 const messageId = await RNWebim.send(message);
 ```
 
+Update or clear the visitor typing draft with `setVisitorTyping`:
+
+```typescript
+await RNWebim.setVisitorTyping('I am writing a message');
+await RNWebim.setVisitorTyping(null);
+```
+
+### Reply to a message
+
+```typescript
+const accepted = await RNWebim.reply(message, messageToReplyTo);
+```
+
+The method returns whether the SDK accepted the reply for sending. The target must be present in the messages loaded by the native SDK tracker.
+
+### Edit, delete, and react
+
+```typescript
+await RNWebim.editMessage(message.id, 'Updated text');
+await RNWebim.deleteMessage(message.id);
+await RNWebim.sendReaction(message.id, 'like');
+```
+
+These operations return `Promise<void>` and resolve only after the SDK success callback. Targets must have been loaded by the native message tracker. SDK refusal, unknown message IDs, and server errors reject the promise. Reactions accept only `like` or `dislike`; removing a reaction is not exposed because iOS SDK 4.0.1 has no matching operation. Editing, deletion, and reactions depend on account permissions and server configuration. Listen for changed/removed message events to update the UI; promise resolution does not replace those events.
+
+See [device acceptance](doc/device-acceptance.md) for the remaining release checks.
+
+### Send a sticker
+
+```typescript
+await RNWebim.sendSticker(stickerId);
+```
+
+Sticker IDs must be available to the Webim account, and sticker sending must be supported by the server.
+
+### Reply to a bot keyboard
+
+Active `KEYBOARD` messages expose their button rows in `message.keyboard`. Send the selected button ID with the keyboard message ID; this uses the SDK keyboard-response operation rather than sending the button label as ordinary text.
+
+```typescript
+await RNWebim.sendKeyboardResponse(keyboardMessage.id, button.id);
+```
+
 ### Read Messages (mark as read)
+
 You can manually mark all messages as read by calling this method.
 
 ```typescript
@@ -238,19 +355,22 @@ await RNWebim.readMessages();
 ## Attach files
 
 #### Use build in method for file attaching:
+
 In future will add possibility to use external library as `react-native-fs` and some other picker to import files via them.
-For now there are such methods
+The iOS picker supports photos and videos; Android opens the system file picker. The iOS Webim SDK upload API currently requires the selected file to be read into memory before sending, so avoid selecting large videos unless your app has enough available memory and the Webim account allows that file size.
+
+The picker returns an attachment that can be sent with the following methods:
 
 ### Attach file
+
 ```typescript
 var result: AttachFileResult = await RNWebim.tryAttachAndSendFile();
 
-console.log('uri: ', result.uri)
-console.log('name: ', result.name)
-console.log('mime: ', result.mime)
-console.log('extension: ', result.extension)
+console.log('uri: ', result.uri);
+console.log('name: ', result.name);
+console.log('mime: ', result.mime);
+console.log('extension: ', result.extension);
 ```
-
 
 ### Send file
 
@@ -267,7 +387,6 @@ try {
 
 ```
 
-
 ### Attach and Send file
 
 ```typescript
@@ -279,9 +398,7 @@ const onSelectFiles = useCallback(async () => {
     const webimError = err as WebimNativeError;
     console.log('Chat][File] error: ', webimError);
     if (webimError.errorType === 'common') {
-      setNotFatalError(
-        webimError.message + `(Code: ${webimError.errorCode})`
-      );
+      setNotFatalError(webimError.message + `(Code: ${webimError.errorCode})`);
     } else {
       setFatalError(webimError.message + `(Code: ${webimError.errorCode})`);
     }
@@ -294,17 +411,19 @@ const onSelectFiles = useCallback(async () => {
 ```js
 RNWebim.rateOperator(rate: number)
 ```
- - `rate` (required) - is number from 1 to 5
+
+- `rate` (required) - is number from 1 to 5
 
 ### Get current operator
 
 ```typescript
 import RNWebim from 'rn-webim-chat';
 
-RNWebim.getCurrentOperator()
+RNWebim.getCurrentOperator();
 ```
 
 it returns such object
+
 ```typescript
 export type Operator = {
   id: string;
@@ -316,6 +435,7 @@ export type Operator = {
 ```
 
 ### Destroy session
+
 ```js
 RNWebim.destroySession(clearData);
 ```
@@ -323,89 +443,39 @@ RNWebim.destroySession(clearData);
 - clearData (optional) boolean - If true wil
 
 ## Start chat with user data
-**Tl;DR;**
-You have to generate private key in your Webim Account and kinda sign your user fields values.
-For more details see [webim documentation](https://webim.ru/kb/dev/identification/id-2-0.html) for client identification.
 
-in [Example app](./example) there is code how to achieve it.
-Example:
-
-I'd recommend to you use some lightweight library. HMAC-256 is enough. Actually you can use md5 algorithm  - but I'd avoid it.
-There are some other aproches e.g. with JsCrypto or with [react-native-crypto ](https://github.com/tradle/react-native-crypto). But here you need to hash all your modules.
-Like [here](https://github.com/volga-volga/react-native-webim#start-chat-with-user-data). But the choice it is up to you!
-
-- install [js-sha256](https://github.com/emn178/js-sha256)
-- write hash-function to sign your fields.
-- use it in your app.
+The [example app](./example) starts as a guest with no `accountJSON`. For an
+identified visitor, authenticate with **your backend** first. The backend must
+generate the `fields` and `hash` according to the [Webim identification
+protocol](https://webim.ru/kb/dev/identification/id-2-0.html), then return the
+signed object to the app. Keep the Webim private key on the server; never ship
+it in a mobile bundle or log signed visitor data.
 
 ```ts
-// chat-utils.ts file
-import { sha256 } from 'js-sha256';
-
-const getHmac_sha256 = async (str: string, privateKey: string) => {
-  return sha256.hmac(privateKey, str);
-};
-
-/**
- * Returns hash value for authorized user.
- * @param obj - User's json fields.
- * @param privateKey - private key value. By that hash will be generated.
- */
-export const getHashForChatSign = async (
-  obj: { [key: string]: string },
-  privateKey: string
-) => {
-  const keys = Object.keys(obj).sort();
-  const str = keys.map((key) => obj[key]).join('');
-  return await getHmac_sha256(str, privateKey);
-};
+const signedVisitor = await fetchSignedVisitorFromYourBackend();
+await RNWebim.initSession({
+  accountName: 'your-account',
+  location: 'default',
+  accountJSON: JSON.stringify(signedVisitor), // { fields: { id, ... }, hash }
+  clearVisitorData: false,
+});
+await RNWebim.resumeSession();
 ```
 
-```tsx
-// App.tsx file
-...
-import { getHashForChatSign } from './chat-utils';
-
-const PRIVATE_KEY = 'YOUR-PRIVATE-KEY-FROM-PORTAL';
-const CHAT_SERVICE_ACCOUNT = 'YOU-ACCOUNT';
-
-const acc = {
-  fields: {
-    id: 'some-id',
-    display_name: '1.0.0',
-    phone: '+79000000000',
-    address: 'Tomsk',
-  },
-  hash: '',
-};
-
-async function intSession() {
-  acc.hash = await getHashForChatSign(acc.fields, PRIVATE_KEY);
-  const sessionsParams = {
-    accountName: CHAT_SERVICE_ACCOUNT,
-    location: '',
-    storeHistoryLocally: true,
-    accountJSON: JSON.stringify(acc),
-    appVersion: AppConfig.version,
-    clearVisitorData: true,
-  };
-
-  await RNWebim.resumeSession(sessionsParams);
-  console.log('[Chat][Init] initialized with params: ', sessionsParams);
-};
-
-...
-```
-
+Destroying a session with `destroySession(false)` keeps visitor data for a
+subsequent session. Use `destroySession(true)` only on logout or when you
+intentionally need to clear that visitor's locally stored identity. If the
+previous example key was configured for a real Webim account, rotate it.
 
 ## Contributing
+
 See the [contributing guide](CONTRIBUTING.md) guide to learn how to contribute to the repository and the development workflow.
 
 ## License
+
 Software provided as it is.
 It will be maintained time-to-time. Currently, I have to use this package in some applications, so I try to keep it on working.
 If you want to help or improve something see section #Contributing
-
 
 ---
 

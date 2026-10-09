@@ -4,6 +4,9 @@ import static java.lang.String.format;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.ClipData;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
 import android.net.Uri;
 import android.webkit.MimeTypeMap;
 
@@ -19,6 +22,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.module.annotations.ReactModule;
@@ -33,6 +37,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import ru.webim.android.sdk.FatalErrorHandler;
 import ru.webim.android.sdk.Message;
@@ -45,6 +56,8 @@ import ru.webim.android.sdk.ProvidedAuthorizationTokenStateListener;
 import ru.webim.android.sdk.Webim;
 import ru.webim.android.sdk.WebimError;
 import ru.webim.android.sdk.WebimSession;
+import ru.webim.android.sdk.UploadedFile;
+import ru.webim.android.sdk.impl.MessageReaction;
 import ru.webim.android.sdk.impl.WebimErrorImpl;
 
 @ReactModule(name = RnWebimChatModule.NAME)
@@ -58,7 +71,340 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   private Callback fileCbFailure;
   private MessageTracker tracker;
   private WebimSession session;
+  private final Map<String, Message> messagesById = new ConcurrentHashMap<>();
+  private final Map<String, UploadedFile> uploadedFiles = new HashMap<>();
+  private final Set<String> busyUploadHandles = new HashSet<>();
+  private final Set<String> attemptedCommitHandles = new HashSet<>();
+  private final Map<String, Promise> attachmentOperations = new HashMap<>();
+  private final Map<String, Object> attachmentCallbacks = new HashMap<>();
+  private final Map<String, File> uploadCopies = new HashMap<>();
+  private long attachmentGeneration;
+  private static final int MULTI_FILE_SELECT_CODE = 7314;
+  private Promise pickerPromise;
+  private int pickerLimit;
+  private final ExecutorService fileExecutor = Executors.newSingleThreadExecutor();
+  // Picker URIs remain retryable until session cleanup; there is no per-selection release API.
+  private final Set<File> pickerCopies = new HashSet<>();
+  private String pendingPushToken;
+  private String pushSystem = "none";
 
+  @ReactMethod
+  public void tryAttachFiles(ReadableMap options, Promise promise) {
+    if (pickerPromise != null || fileCbSuccess != null) {
+      promise.reject("ATTACHMENT_PICKER_BUSY", "A file picker is already open");
+      return;
+    }
+    try {
+      String kind = options.getString("kind");
+      double maximum = options.getDouble("maxFiles");
+      if ((!"media".equals(kind) && !"documents".equals(kind)) || maximum < 1 || maximum > 10 || maximum != Math.floor(maximum)) {
+        throw new IllegalArgumentException("kind must be media or documents; maxFiles must be an integer from 1 to 10");
+      }
+      Activity activity = reactContext.getCurrentActivity();
+      if (activity == null) {
+        promise.reject("ACTIVITY_UNAVAILABLE", "No activity is available to present the picker");
+        return;
+      }
+      pickerPromise = promise;
+      pickerLimit = (int) maximum;
+      Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+      intent.addCategory(Intent.CATEGORY_OPENABLE);
+      intent.setType("*/*");
+      intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+      if ("media".equals(kind)) intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "video/*"});
+      activity.runOnUiThread(() -> {
+        try {
+          activity.startActivityForResult(intent, MULTI_FILE_SELECT_CODE);
+        } catch (Exception error) {
+          reactContext.runOnNativeModulesQueueThread(() -> finishPickerFailure("SELECT_FILE_FAILED", error.getMessage()));
+        }
+      });
+    } catch (Exception error) {
+      promise.reject("INVALID_ATTACHMENT_OPTIONS", error.getMessage(), error);
+    }
+  }
+
+  private void finishPickerFailure(String code, String message) {
+    Promise pending = pickerPromise;
+    pickerPromise = null;
+    if (pending != null) pending.reject(code, message);
+  }
+
+  private void receiveMultipleFiles(int resultCode, Intent data) {
+    if (pickerPromise == null) return;
+    if (resultCode != Activity.RESULT_OK || data == null) {
+      finishPickerFailure("SELECT_FILE_CANCELED", "File selection canceled");
+      return;
+    }
+    List<Uri> uris = new ArrayList<>();
+    ClipData clips = data.getClipData();
+    if (clips != null) {
+      for (int index = 0; index < clips.getItemCount(); index++) uris.add(clips.getItemAt(index).getUri());
+    } else if (data.getData() != null) {
+      uris.add(data.getData());
+    }
+    if (uris.isEmpty() || uris.size() > pickerLimit) {
+      finishPickerFailure("ATTACHMENT_LIMIT_EXCEEDED", "Selected file count exceeds maxFiles or is empty");
+      return;
+    }
+    final Promise pending = pickerPromise;
+    fileExecutor.execute(() -> {
+      List<File> copies = new ArrayList<>();
+      WritableArray results = Arguments.createArray();
+      try {
+        for (Uri uri : uris) {
+          String name = null;
+          try (Cursor cursor = reactContext.getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) name = cursor.getString(0);
+          }
+          if (name == null || name.isEmpty()) name = "attachment";
+          String mime = reactContext.getContentResolver().getType(uri);
+          int dot = name.lastIndexOf('.');
+          String extension = dot < 0 ? "" : name.substring(dot + 1).toLowerCase(Locale.ROOT);
+          if (mime == null) mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
+          if (mime == null) mime = "application/octet-stream";
+          File copy = File.createTempFile("webim-picker-", ".tmp", reactContext.getCacheDir());
+          copies.add(copy);
+          InputStream input = reactContext.getContentResolver().openInputStream(uri);
+          if (input == null) throw new IOException("Selected file cannot be opened");
+          writeFully(copy, input);
+          WritableMap result = Arguments.createMap();
+          result.putString("uri", Uri.fromFile(copy).toString());
+          result.putString("name", name);
+          result.putString("mime", mime);
+          result.putString("extension", extension);
+          results.pushMap(result);
+        }
+        reactContext.runOnNativeModulesQueueThread(() -> {
+          if (pickerPromise != pending) {
+            for (File copy : copies) copy.delete();
+            return;
+          }
+          pickerCopies.addAll(copies);
+          pickerPromise = null;
+          pending.resolve(results);
+        });
+      } catch (Exception error) {
+        for (File copy : copies) copy.delete();
+        reactContext.runOnNativeModulesQueueThread(() -> {
+          if (pickerPromise == pending) finishPickerFailure("SELECT_FILE_FAILED", error.getMessage());
+        });
+      }
+    });
+  }
+
+  @ReactMethod
+  public void setPushToken(String token, Promise promise) {
+    if (token == null || token.trim().isEmpty()) {
+      promise.reject("INVALID_PUSH_TOKEN", "A nonempty FCM token is required; empty tokens do not unregister push");
+      return;
+    }
+    if (session != null && !"fcm".equals(pushSystem)) {
+      promise.reject("INVALID_PUSH_SYSTEM", "The active session must enable fcm before updating its token");
+      return;
+    }
+    try {
+      if (session != null) session.setPushToken(token);
+      pendingPushToken = token;
+      promise.resolve(null);
+    } catch (Exception error) {
+      promise.reject("PUSH_TOKEN_UPDATE_FAILED", error.getMessage(), error);
+    }
+  }
+
+  @ReactMethod
+  public void uploadFile(String uri, String name, String mime, String extension, Promise promise) {
+    if (session == null) {
+      promise.reject("NULL_SESSION", "Upload requires an active session");
+      return;
+    }
+    final String handle = UUID.randomUUID().toString();
+    final long generation = attachmentGeneration;
+    if (name == null || name.isEmpty() || mime == null || mime.isEmpty() || uri == null) {
+      promise.reject("INVALID_ATTACHMENT", "A readable URI, file name and MIME type are required");
+      return;
+    }
+    attachmentOperations.put(handle, promise);
+    fileExecutor.execute(() -> {
+      File copy = null;
+      try {
+        copy = File.createTempFile("webim-upload-", ".tmp", reactContext.getCacheDir());
+        InputStream input = reactContext.getContentResolver().openInputStream(Uri.parse(uri));
+        if (input == null) throw new IOException("File cannot be opened");
+        writeFully(copy, input);
+        final File prepared = copy;
+        reactContext.runOnNativeModulesQueueThread(() -> {
+          if (generation != attachmentGeneration || !attachmentOperations.containsKey(handle)) {
+            prepared.delete();
+            return;
+          }
+          beginFileUpload(handle, prepared, name, mime);
+        });
+      } catch (Exception error) {
+        if (copy != null) copy.delete();
+        reactContext.runOnNativeModulesQueueThread(() -> {
+          Promise pending = attachmentOperations.remove(handle);
+          if (pending != null) pending.reject("UPLOAD_FILE_FAILED", error.getMessage(), error);
+        });
+      }
+    });
+  }
+
+  private void beginFileUpload(String handle, File copy, String name, String mime) {
+    uploadCopies.put(handle, copy);
+    try {
+      MessageStream.UploadFileToServerCallback callback = new MessageStream.UploadFileToServerCallback() {
+        @Override
+        public void onSuccess(Message.Id id, UploadedFile file) {
+          reactContext.runOnNativeModulesQueueThread(() -> {
+            Promise pending = attachmentOperations.remove(handle);
+            if (pending == null) return;
+            finishUploadCopy(handle);
+            attachmentCallbacks.remove(handle);
+            uploadedFiles.put(handle, file);
+            pending.resolve(handle);
+          });
+        }
+
+        @Override
+        public void onFailure(Message.Id id, WebimError<MessageStream.SendFileCallback.SendFileError> error) {
+          reactContext.runOnNativeModulesQueueThread(() -> {
+            Promise pending = attachmentOperations.remove(handle);
+            if (pending == null) return;
+            finishUploadCopy(handle);
+            attachmentCallbacks.remove(handle);
+            String code = error instanceof SafeUploadedFileResponse.InvalidUploadResponseError
+              ? ((SafeUploadedFileResponse.InvalidUploadResponseError) error).getCode()
+              : error.getErrorType().name();
+            handleError(pending, code, error.getErrorString(), false, null);
+          });
+        }
+      };
+      attachmentCallbacks.put(handle, callback);
+      session.getStream().uploadFileToServer(copy, name, mime, callback);
+    } catch (Exception error) {
+      attachmentCallbacks.remove(handle);
+      Promise pending = attachmentOperations.remove(handle);
+      finishUploadCopy(handle);
+      if (pending != null) pending.reject("UPLOAD_FILE_FAILED", error.getMessage(), error);
+    }
+  }
+
+  @ReactMethod
+  public void sendUploadedFiles(ReadableArray handles, Promise promise) {
+    if (session == null) {
+      promise.reject("NULL_SESSION", "Send requires an active session");
+      return;
+    }
+    List<UploadedFile> files = new ArrayList<>();
+    Set<String> selected = new HashSet<>();
+    final String operation = UUID.randomUUID().toString();
+    try {
+      if (handles.size() < 1 || handles.size() > 10) throw new IllegalArgumentException("A group must contain 1 to 10 files");
+      for (int index = 0; index < handles.size(); index++) {
+        String handle = handles.getString(index);
+        if (!uploadedFiles.containsKey(handle) || busyUploadHandles.contains(handle) || !selected.add(handle)) {
+          throw new IllegalArgumentException("Invalid, duplicate, or busy upload handle");
+        }
+        files.add(uploadedFiles.get(handle));
+      }
+      busyUploadHandles.addAll(selected);
+      attachmentOperations.put(operation, promise);
+      MessageStream.SendFilesCallback callback = new MessageStream.SendFilesCallback() {
+        @Override
+        public void onSuccess(Message.Id id) {
+          reactContext.runOnNativeModulesQueueThread(() -> {
+            Promise pending = attachmentOperations.remove(operation);
+            if (pending == null) return;
+            busyUploadHandles.removeAll(selected);
+            attachmentCallbacks.remove(operation);
+            for (String handle : selected) {
+              uploadedFiles.remove(handle);
+              attemptedCommitHandles.remove(handle);
+            }
+            pending.resolve(getSimpleMap("id", id.toString()));
+          });
+        }
+
+        @Override
+        public void onFailure(Message.Id id, WebimError<MessageStream.SendFileCallback.SendFileError> error) {
+          reactContext.runOnNativeModulesQueueThread(() -> {
+            Promise pending = attachmentOperations.remove(operation);
+            if (pending == null) return;
+            busyUploadHandles.removeAll(selected);
+            attachmentCallbacks.remove(operation);
+            handleError(pending, error.getErrorType().name(), error.getErrorString(), false, null);
+          });
+        }
+      };
+      attachmentCallbacks.put(operation, callback);
+      attemptedCommitHandles.addAll(selected);
+      session.getStream().sendFiles(files, callback);
+    } catch (Exception error) {
+      attachmentOperations.remove(operation);
+      attachmentCallbacks.remove(operation);
+      busyUploadHandles.removeAll(selected);
+      promise.reject("SEND_UPLOADED_FILES_FAILED", error.getMessage(), error);
+    }
+  }
+
+  @ReactMethod
+  // Explicit deletion is caller-authorized even after an uncertain commit; selected URIs stay valid.
+  public void deleteUploadedFile(String handle, Promise promise) {
+    UploadedFile file = uploadedFiles.get(handle);
+    if (session == null || file == null || busyUploadHandles.contains(handle)) {
+      promise.reject("INVALID_UPLOAD_HANDLE", "Unknown, stale, or busy upload handle");
+      return;
+    }
+    final String operation = UUID.randomUUID().toString();
+    busyUploadHandles.add(handle);
+    attachmentOperations.put(operation, promise);
+    try {
+      MessageStream.DeleteUploadedFileCallback callback = new MessageStream.DeleteUploadedFileCallback() {
+        @Override
+        public void onSuccess() {
+          reactContext.runOnNativeModulesQueueThread(() -> {
+            Promise pending = attachmentOperations.remove(operation);
+            if (pending == null) return;
+            busyUploadHandles.remove(handle);
+            attachmentCallbacks.remove(operation);
+            uploadedFiles.remove(handle);
+            attemptedCommitHandles.remove(handle);
+            pending.resolve(null);
+          });
+        }
+
+        @Override
+        public void onFailure(WebimError<DeleteUploadedFileError> error) {
+          reactContext.runOnNativeModulesQueueThread(() -> {
+            Promise pending = attachmentOperations.remove(operation);
+            if (pending == null) return;
+            busyUploadHandles.remove(handle);
+            attachmentCallbacks.remove(operation);
+            handleError(pending, error.getErrorType().name(), error.getErrorString(), false, null);
+          });
+        }
+      };
+      attachmentCallbacks.put(operation, callback);
+      session.getStream().deleteUploadedFile(file.getGuid(), callback);
+    } catch (Exception error) {
+      attachmentOperations.remove(operation);
+      attachmentCallbacks.remove(operation);
+      busyUploadHandles.remove(handle);
+      promise.reject("DELETE_UPLOADED_FILE_FAILED", error.getMessage(), error);
+    }
+  }
+
+  private void finishUploadCopy(String handle) {
+    File copy = uploadCopies.remove(handle);
+    if (copy != null) copy.delete();
+  }
+
+  @ReactMethod
+  public void addListener(String eventName) {}
+
+  @ReactMethod
+  public void removeListeners(double count) {}
 
   public RnWebimChatModule(ReactApplicationContext context) {
     super(context);
@@ -68,8 +414,12 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
       @Override
       public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
+        if (requestCode == MULTI_FILE_SELECT_CODE) {
+          reactContext.runOnNativeModulesQueueThread(() -> receiveMultipleFiles(resultCode, data));
+          return;
+        }
         if (requestCode == FILE_SELECT_CODE) {
-          if (resultCode == Activity.RESULT_OK) {
+          if (resultCode == Activity.RESULT_OK && data != null) {
             Uri uri = data.getData();
             Activity _activity = getContext().getCurrentActivity();
             if (_activity != null && uri != null) {
@@ -88,7 +438,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
                 _data.putString("extension", extension);
                 fileCbSuccess.invoke(_data);
               }
-            } else {
+            } else if (fileCbFailure != null) {
               WritableMap errorBody = getErrorMap(MessageStream.SendFileCallback.SendFileError.UNKNOWN.name(),
                 "File selection unknown reason",
                 true);
@@ -97,7 +447,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
             clearAttachCallbacks();
             return;
           }
-          if (resultCode != Activity.RESULT_CANCELED) {
+          if (resultCode != Activity.RESULT_OK || data == null) {
             if (fileCbFailure != null) {
               WritableMap errorBody = getErrorMap("SELECT_FILE_CANCELED", "Canceled by user", false);
               fileCbFailure.invoke(errorBody);
@@ -135,8 +485,8 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       .setOnlineStatusRequestFrequencyInMillis(1500)
       .setPushSystem(Webim.PushSystem.NONE);
 
-    if (pushToken != null) {
-      builder.setPushSystem(Webim.PushSystem.FCM);
+    builder.setPushSystem("fcm".equals(pushSystem) ? Webim.PushSystem.FCM : Webim.PushSystem.NONE);
+    if (pushToken != null && "fcm".equals(pushSystem)) {
       builder.setPushToken(pushToken);
     }
     if (accountJSON != null) {
@@ -166,6 +516,10 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   @ReactMethod
   public void initSession(ReadableMap builderData, Promise promise) {
+    if (session != null) {
+      promise.resolve(Arguments.createMap());
+      return;
+    }
     String accountName = builderData.getString("accountName");
     String location = builderData.getString("location");
 
@@ -177,7 +531,17 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     Boolean storeHistoryLocally = builderData.hasKey("storeHistoryLocally") ? builderData.getBoolean("storeHistoryLocally") : null;
     String title = builderData.hasKey("title") ? builderData.getString("title") : null;
     String prechat = builderData.hasKey("prechat") ? builderData.getString("prechat") : null;
-    String pushToken = builderData.hasKey("pushToken") ? builderData.getString("pushToken") : null;
+    String pushToken = builderData.hasKey("pushToken") ? builderData.getString("pushToken") : pendingPushToken;
+    String requestedPushSystem = builderData.hasKey("pushSystem") ? builderData.getString("pushSystem") : (pushToken == null ? "none" : "fcm");
+    if (!"none".equals(requestedPushSystem) && !"fcm".equals(requestedPushSystem)) {
+      promise.reject("INVALID_PUSH_SYSTEM", "Android supports none or fcm, not apns");
+      return;
+    }
+    if (pushToken != null && (pushToken.trim().isEmpty() || !"fcm".equals(requestedPushSystem))) {
+      promise.reject("INVALID_PUSH_TOKEN", "A token requires the fcm transport and cannot be empty");
+      return;
+    }
+    pushSystem = requestedPushSystem;
 
     try {
       init(accountName, location, accountJSON, providedAuthorizationToken, appVersion, clearVisitorData, storeHistoryLocally, title, pushToken, prechat);
@@ -205,7 +569,6 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       }
 
       session.resume();
-      session.getStream().startChat();
       session.getStream().setChatRead();
       promise.resolve(Arguments.createMap());
     } catch (NullPointerException e) {
@@ -230,9 +593,12 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   @ReactMethod
   public void destroySession(Boolean clearData, Promise promise) {
     try {
+      clearAttachmentState();
       if (session != null) {
-        session.getStream().closeChat();
-        tracker.destroy();
+        if (tracker != null) {
+          tracker.destroy();
+          tracker = null;
+        }
         if (clearData) {
           session.destroyWithClearVisitorData();
         } else {
@@ -240,6 +606,9 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
         }
         session = null;
       }
+      messagesById.clear();
+      pendingPushToken = null;
+      pushSystem = "none";
       promise.resolve(Arguments.createMap());
     } catch (Exception e) {
       handleError(promise, FatalErrorType.UNKNOWN.name(), "Destroy session failed", false, e);
@@ -321,9 +690,198 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   }
 
   @ReactMethod
+  public void resolveAttachmentUrl(String messageId, int index, Promise promise) {
+    Message message = messagesById.get(messageId);
+    if (session == null || message == null || message.getAttachment() == null) {
+      promise.reject("ATTACHMENT_UNAVAILABLE", "The attachment is not available in this session");
+      return;
+    }
+    List<Message.FileInfo> files = message.getAttachment().getFilesInfo();
+    if (files == null || index < 0 || index >= files.size()) {
+      promise.reject("ATTACHMENT_UNAVAILABLE", "The attachment is not available");
+      return;
+    }
+    String url = files.get(index).getUrl();
+    if (url == null || Uri.parse(url).getQueryParameter("hash") == null) {
+      promise.reject("ATTACHMENT_URL_NOT_READY", "File authentication is not ready");
+      return;
+    }
+    promise.resolve(url);
+  }
+
+  @ReactMethod
+  public void reply(String message, String replyToId, final Promise promise) {
+    Message replyTo = messagesById.get(replyToId);
+    if (replyTo == null) {
+      handleError(promise, "MESSAGE_NOT_FOUND", "Reply target is not in the loaded message history", false, null);
+      return;
+    }
+
+    try {
+      boolean accepted = session.getStream().replyMessage(message, replyTo);
+      promise.resolve(accepted);
+    } catch (NullPointerException e) {
+      handleError(promise, "NULL_SESSION", "Can not reply as session or stream is destroyed", true, e);
+    } catch (IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (Exception e) {
+      handleError(promise, FatalErrorType.UNKNOWN.name(), e.getLocalizedMessage(), false, e);
+    }
+  }
+
+  @ReactMethod
+  public void sendSticker(int stickerId, final Promise promise) {
+    try {
+      session.getStream().sendSticker(stickerId, new MessageStream.SendStickerCallback() {
+        @Override
+        public void onSuccess() {
+          promise.resolve(null);
+        }
+
+        @Override
+        public void onFailure(WebimError<MessageStream.SendStickerCallback.SendStickerError> error) {
+          handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
+        }
+      });
+    } catch (NullPointerException e) {
+      handleError(promise, "NULL_SESSION", "Can not send a sticker as session or stream is destroyed", true, e);
+    } catch (IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    }
+  }
+
+  @ReactMethod
+  public void sendKeyboardResponse(String messageId, String buttonId, final Promise promise) {
+    try {
+      session.getStream().sendKeyboardRequest(messageId, buttonId, new MessageStream.SendKeyboardCallback() {
+        @Override
+        public void onSuccess(Message.Id id) {
+          promise.resolve(id.toString());
+        }
+
+        @Override
+        public void onFailure(Message.Id id, WebimError<MessageStream.SendKeyboardCallback.SendKeyboardError> error) {
+          handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
+        }
+      });
+    } catch (NullPointerException e) {
+      handleError(promise, "NULL_SESSION", "Can not send a keyboard response as session or stream is destroyed", true, e);
+    } catch (IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    }
+  }
+
+  @ReactMethod
+  public void editMessage(String messageId, String text, final Promise promise) {
+    Message message = messagesById.get(messageId);
+    if (message == null) {
+      handleError(promise, "MESSAGE_NOT_FOUND", "Message is not in the loaded message history", false, null);
+      return;
+    }
+    try {
+      boolean accepted = session.getStream().editMessage(message, text, new MessageStream.EditMessageCallback() {
+        @Override
+        public void onSuccess(Message.Id id, String editedText) {
+          promise.resolve(null);
+        }
+
+        @Override
+        public void onFailure(Message.Id id, WebimError<EditMessageError> error) {
+          handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
+        }
+      });
+      if (!accepted) {
+        handleError(promise, "MESSAGE_ACTION_REJECTED", "Message editing was not accepted", false, null);
+      }
+    } catch (NullPointerException | IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    }
+  }
+
+  @ReactMethod
+  public void deleteMessage(String messageId, final Promise promise) {
+    Message message = messagesById.get(messageId);
+    if (message == null) {
+      handleError(promise, "MESSAGE_NOT_FOUND", "Message is not in the loaded message history", false, null);
+      return;
+    }
+    try {
+      boolean accepted = session.getStream().deleteMessage(message, new MessageStream.DeleteMessageCallback() {
+        @Override
+        public void onSuccess(Message.Id id) {
+          promise.resolve(null);
+        }
+
+        @Override
+        public void onFailure(Message.Id id, WebimError<DeleteMessageError> error) {
+          handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
+        }
+      });
+      if (!accepted) {
+        handleError(promise, "MESSAGE_ACTION_REJECTED", "Message deletion was not accepted", false, null);
+      }
+    } catch (NullPointerException | IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    }
+  }
+
+  @ReactMethod
+  public void sendReaction(String messageId, String reaction, final Promise promise) {
+    if (!"like".equals(reaction) && !"dislike".equals(reaction)) {
+      handleError(promise, "INVALID_REACTION", "Reaction must be like or dislike", false, null);
+      return;
+    }
+    Message message = messagesById.get(messageId);
+    if (message == null) {
+      handleError(promise, "MESSAGE_NOT_FOUND", "Message is not in the loaded message history", false, null);
+      return;
+    }
+    try {
+      MessageReaction sdkReaction = "like".equals(reaction) ? MessageReaction.LIKE : MessageReaction.DISLIKE;
+      session.getStream().reactMessage(message, sdkReaction, new MessageStream.MessageReactionCallback() {
+        @Override
+        public void onSuccess(Message.Id id) {
+          promise.resolve(null);
+        }
+        @Override
+        public void onFailure(Message.Id id, WebimError<MessageReactionError> error) {
+          handleError(promise, error.getErrorType().name(), error.getErrorString(), false, null);
+        }
+      });
+    } catch (NullPointerException | IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", e.getLocalizedMessage(), true, e);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", e.getLocalizedMessage(), true, e);
+    }
+  }
+
+  @ReactMethod
+  public void setVisitorTyping(@Nullable String draft, final Promise promise) {
+    try {
+      session.getStream().setVisitorTyping(draft);
+      promise.resolve(null);
+    } catch (NullPointerException | IllegalStateException e) {
+      handleError(promise, "NULL_SESSION", "Session is destroyed", false, null);
+    } catch (RuntimeException e) {
+      handleError(promise, "WRONG_SESSION", "Typing update failed", false, null);
+    }
+  }
+
+  @ReactMethod
   public void readMessages(final Promise promise) {
     try {
       session.getStream().setChatRead();
+      promise.resolve(Arguments.createMap());
     } catch (Exception e) {
       handleError(promise,
         FatalErrorType.UNKNOWN.name(),
@@ -371,6 +929,10 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   @ReactMethod
   public void tryAttachFile(Callback failureCb, Callback successCb) {
+    if (pickerPromise != null || fileCbSuccess != null) {
+      failureCb.invoke(getErrorMap("ATTACHMENT_PICKER_BUSY", "A file picker is already open", false));
+      return;
+    }
     try {
       fileCbFailure = failureCb;
       fileCbSuccess = successCb;
@@ -388,7 +950,8 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
       }
     } catch (Exception e) {
       WritableMap errorBody = getErrorMap("SELECT_FILE_FAILED", e.getLocalizedMessage(), true);
-      fileCbFailure.invoke(errorBody);
+      if (fileCbFailure != null) fileCbFailure.invoke(errorBody);
+      clearAttachCallbacks();
     }
   }
 
@@ -429,8 +992,8 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
           public void onProgress(@NonNull Message.Id id, long sentBytes) {
             WritableMap result = Arguments.createMap();
             result.putString("id", id.toString());
-            result.putString("bytes", Long.toString(sentBytes));
-            result.putString("fullSize", Long.toString(fileToUpload.getTotalSpace()));
+            result.putDouble("bytes", (double) sentBytes);
+            result.putDouble("fullSize", (double) fileToUpload.length());
             emitDeviceEvent("fileUploading", result);
           }
 
@@ -451,12 +1014,18 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
           }
         });
       } else {
+        if (file != null) {
+          file.delete();
+        }
         WritableMap errorBody = getErrorMap(MessageStream.SendFileCallback.SendFileError.FILE_NOT_FOUND.name(),
           "File is not provided",
           true);
         failureCb.invoke(errorBody);
       }
     } catch (Exception e) {
+      if (file != null) {
+        file.delete();
+      }
       WritableMap errorBody = getErrorMap(FatalErrorType.UNKNOWN.name(),
         e.getLocalizedMessage(),
         true);
@@ -500,11 +1069,14 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
 
   @Override
   public void messageRemoved(@NonNull Message message) {
-    emitDeviceEvent("removeMessage", messageToJson(message));
+    WritableMap payload = messageToJson(message);
+    messagesById.remove(message.getClientSideId().toString());
+    emitDeviceEvent("removeMessage", payload);
   }
 
   @Override
   public void allMessagesRemoved() {
+    messagesById.clear();
     final WritableMap map = Arguments.createMap();
     emitDeviceEvent("allMessagesRemoved", map);
   }
@@ -512,8 +1084,8 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   @Override
   public void messageChanged(@NonNull Message from, @NonNull Message to) {
     final WritableMap map = Arguments.createMap();
-    map.putMap("to", messageToJson(to));
     map.putMap("from", messageToJson(from));
+    map.putMap("to", messageToJson(to));
     emitDeviceEvent("changedMessage", map);
   }
 
@@ -571,6 +1143,7 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   }
 
   private WritableMap messageToJson(Message msg) {
+    messagesById.put(msg.getClientSideId().toString(), msg);
     final WritableMap map = Arguments.createMap();
     map.putString("id", msg.getClientSideId().toString());
     map.putString("serverSideId", msg.getServerSideId());
@@ -593,19 +1166,58 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
     if (msg.getSticker() != null) {
       map.putInt("stickerId", msg.getSticker().getStickerId());
     }
+    Message.Keyboard keyboard = msg.getKeyboard();
+    if (keyboard != null) {
+      WritableArray rows = Arguments.createArray();
+      for (List<Message.KeyboardButton> keyboardRow : keyboard.getButtons()) {
+        WritableArray row = Arguments.createArray();
+        for (Message.KeyboardButton button : keyboardRow) {
+          WritableMap item = Arguments.createMap();
+          item.putString("id", button.getId());
+          item.putString("text", button.getText());
+          row.pushMap(item);
+        }
+        rows.pushArray(row);
+      }
+      WritableMap keyboardMap = Arguments.createMap();
+      keyboardMap.putArray("buttons", rows);
+      keyboardMap.putString("state", keyboard.getState().name());
+      if (keyboard.getKeyboardResponse() != null) {
+        keyboardMap.putString("response", keyboard.getKeyboardResponse().getButtonId());
+      }
+      map.putMap("keyboard", keyboardMap);
+    }
+    Message.KeyboardRequest keyboardRequest = msg.getKeyboardRequest();
+    if (keyboardRequest != null) {
+      WritableMap request = Arguments.createMap();
+      Message.KeyboardButton button = keyboardRequest.getButtons();
+      if (button != null) {
+        WritableMap buttonMap = Arguments.createMap();
+        buttonMap.putString("id", button.getId());
+        buttonMap.putString("text", button.getText());
+        request.putMap("button", buttonMap);
+      }
+      request.putString("messageId", keyboardRequest.getMessageId());
+      map.putMap("keyboardRequest", request);
+    }
     if (msg.getOperatorId() != null) {
       map.putString("operatorId", msg.getOperatorId().toString());
     }
 
     Message.Attachment attach = msg.getAttachment();
     if (attach != null) {
-      map.putMap("attachment", mapAttachmentToJson(msg.getAttachment().getFileInfo()));
+      WritableArray attachments = Arguments.createArray();
+      List<Message.FileInfo> files = attach.getFilesInfo();
+      if (files != null) {
+        for (Message.FileInfo file : files) attachments.pushMap(mapAttachmentToJson(file));
+      }
+      if (files != null && !files.isEmpty()) map.putMap("attachment", mapAttachmentToJson(files.get(0)));
+      map.putArray("attachments", attachments);
     }
 
     Message.Quote quote = msg.getQuote();
     if (quote != null) {
       WritableMap _att = Arguments.createMap();
-      _att.putString("authorId", quote.getAuthorId());
       _att.putString("senderName", quote.getSenderName());
       _att.putString("messageId", quote.getMessageId());
       _att.putString("messageText", quote.getMessageText());
@@ -650,6 +1262,29 @@ public class RnWebimChatModule extends ReactContextBaseJavaModule implements
   private void clearAttachCallbacks() {
     fileCbFailure = null;
     fileCbSuccess = null;
+  }
+
+  private void clearAttachmentState() {
+    attachmentGeneration++;
+    // A failed send callback does not prove the server did not commit the group.
+    for (Map.Entry<String, UploadedFile> entry : uploadedFiles.entrySet()) {
+      if (session != null && !busyUploadHandles.contains(entry.getKey()) && !attemptedCommitHandles.contains(entry.getKey())) {
+        try { session.getStream().deleteUploadedFile(entry.getValue().getGuid(), null); } catch (Exception ignored) {}
+      }
+    }
+    for (Promise pending : attachmentOperations.values()) pending.reject("SESSION_DESTROYED", "Attachment operation interrupted by session destruction");
+    attachmentOperations.clear();
+    attachmentCallbacks.clear();
+    uploadedFiles.clear();
+    busyUploadHandles.clear();
+    attemptedCommitHandles.clear();
+    for (File copy : uploadCopies.values()) copy.delete();
+    uploadCopies.clear();
+    for (File copy : pickerCopies) copy.delete();
+    pickerCopies.clear();
+    finishPickerFailure("SESSION_DESTROYED", "Attachment selection interrupted by session destruction");
+    if (fileCbFailure != null) fileCbFailure.invoke(getErrorMap("SESSION_DESTROYED", "Attachment selection interrupted by session destruction", false));
+    clearAttachCallbacks();
   }
 
   private static void writeFully(@NonNull File to, @NonNull InputStream from) throws IOException {

@@ -1,0 +1,148 @@
+import org.gradle.api.artifacts.transform.TransformAction
+import org.gradle.api.artifacts.transform.TransformParameters
+import org.gradle.api.artifacts.transform.TransformOutputs
+import org.gradle.api.artifacts.transform.InputArtifact
+import org.gradle.api.file.FileSystemLocation
+import org.gradle.api.provider.Provider
+import java.security.MessageDigest
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+
+abstract class WebimUploadPatchTransform implements TransformAction<TransformParameters.None> {
+  @InputArtifact
+  abstract Provider<FileSystemLocation> getInputArtifact()
+
+  static byte[] stripPatchedClasses(byte[] archive) {
+    def bytes = new ByteArrayOutputStream()
+    def replaced = ['ru/webim/android/sdk/impl/MessageStreamImpl',
+            'ru/webim/android/sdk/impl/FileUrlCreator',
+                    'ru/webim/android/sdk/impl/backend/WebimActions',
+                    'ru/webim/android/sdk/impl/backend/WebimActionsImpl']
+    def removed = replaced.collectEntries { [(it): 0] }
+    new ZipInputStream(new ByteArrayInputStream(archive)).withCloseable { input ->
+      new ZipOutputStream(bytes).withCloseable { output ->
+        ZipEntry entry
+        while ((entry = input.nextEntry) != null) {
+          def owner = replaced.find { entry.name == it + '.class' || entry.name.startsWith(it + '$') }
+          if (owner != null) {
+            removed[owner]++
+          } else {
+            output.putNextEntry(new ZipEntry(entry.name))
+            output << input
+            output.closeEntry()
+          }
+        }
+      }
+    }
+    if (removed.values().any { it == 0 }) throw new GradleException('Webim 4.1.4 replacement classes not found; review upload patch')
+    bytes.toByteArray()
+  }
+
+  @Override
+  void transform(TransformOutputs outputs) {
+    File original = inputArtifact.get().asFile
+    if (original.name != 'webimclientsdkandroid-4.1.4.aar') {
+      throw new GradleException("Upload patch requires Webim 4.1.4, received ${original.name}")
+    }
+    new ZipFile(original).withCloseable { input ->
+      new ZipOutputStream(new FileOutputStream(outputs.file('webimclientsdkandroid-4.1.4-safe-upload.aar'))).withCloseable { output ->
+        input.entries().each { entry ->
+          output.putNextEntry(new ZipEntry(entry.name))
+          byte[] contents = input.getInputStream(entry).withCloseable { it.bytes }
+          output.write(entry.name == 'classes.jar' ? stripPatchedClasses(contents) : contents)
+          output.closeEntry()
+        }
+      }
+    }
+  }
+}
+
+def safeUpload = Attribute.of('com.rnwebimchat.safe-upload', Boolean)
+rootProject.allprojects { targetProject ->
+  targetProject.dependencies {
+    attributesSchema { attribute(safeUpload) }
+    artifactTypes.maybeCreate('aar').attributes.attribute(safeUpload, false)
+    registerTransform(WebimUploadPatchTransform) {
+      from.attribute(safeUpload, false).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'aar')
+      to.attribute(safeUpload, true).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'aar')
+    }
+  }
+}
+
+configurations.create('webimUploadPatchSources') { transitive = false }
+dependencies.add('webimUploadPatchSources', 'ru.webim.sdk:webimclientsdkandroid:4.1.4:sources@jar')
+def patchedSources = layout.buildDirectory.dir('generated/sources/webimUploadPatch')
+def generatePatch = tasks.register('generateWebimUploadPatch') {
+  inputs.files(configurations.webimUploadPatchSources)
+  inputs.file(file('sdk-upload-patch.gradle'))
+  outputs.dir(patchedSources)
+  doLast {
+    File archive = configurations.webimUploadPatchSources.singleFile
+    String digest = MessageDigest.getInstance('SHA-256').digest(archive.bytes).encodeHex().toString()
+    if (digest != 'd41779f4f71bb5a86109e2862b38d813e27a249253b055dedc69fb0925c5265d') {
+      throw new GradleException('Webim source checksum changed; review upload patch')
+    }
+    new ZipFile(archive).withCloseable { input ->
+      def readSource = { String path ->
+        def entry = input.getEntry(path)
+        if (entry == null) throw new GradleException("Missing Webim source: ${path}")
+        input.getInputStream(entry).withCloseable { it.getText('UTF-8') }
+      }
+      def writeSource = { String path, String source ->
+        File target = new File(patchedSources.get().asFile, path)
+        target.parentFile.mkdirs()
+        target.setText(source, 'UTF-8')
+      }
+      String urlPath = 'ru/webim/android/sdk/impl/FileUrlCreator.java'
+      String urlSource = readSource(urlPath)
+      String urlCondition = 'safeUrlEnabled != null && safeUrlEnabled && client.getAuthData() != null'
+      if (urlSource.count(urlCondition) != 1) throw new GradleException('Webim file URL signing changed; review media patch')
+      writeSource(urlPath, urlSource.replace(urlCondition, 'client.getAuthData() != null'))
+
+      String streamPath = 'ru/webim/android/sdk/impl/MessageStreamImpl.java'
+      String source = readSource(streamPath)
+      String original = 'UploadedFile uploadedFile = InternalUtils.getUploadedFile(response);\n                            uploadFileToServerCallback.onSuccess(id, uploadedFile);'
+      if (source.count(original) != 1) throw new GradleException('Webim upload callback changed; review upload patch')
+      String replacement = 'com.rnwebimchat.SafeUploadedFileResponse.deliver(response, id, uploadFileToServerCallback);'
+      source = source.replace(original, replacement)
+      int uploadStart = source.indexOf('public Message.Id uploadFileToServer(')
+      int uploadCall = source.indexOf('actions.sendFile(', uploadStart)
+      int uploadCallback = source.indexOf(replacement, uploadStart)
+      if (uploadStart < 0 || uploadCall < uploadStart || uploadCall > uploadCallback) {
+        throw new GradleException('Webim stream upload routing changed; review upload patch')
+      }
+      source = source.substring(0, uploadCall) + 'actions.uploadFileToServer(' +
+        source.substring(uploadCall + 'actions.sendFile('.length())
+      writeSource(streamPath, source)
+
+      String interfacePath = 'ru/webim/android/sdk/impl/backend/WebimActions.java'
+      String actions = readSource(interfacePath)
+      String declaration = '''    void sendFile(@NonNull RequestBody body,
+                  @NonNull String filename,
+                  @NonNull String clientSideId,
+                  @Nullable SendOrDeleteMessageInternalCallback callback);'''
+      if (actions.count(declaration) != 1) throw new GradleException('Webim sendFile declaration changed; review upload patch')
+      writeSource(interfacePath, actions.replace(declaration,
+        declaration + '\n\n' + declaration.replace('void sendFile(', 'void uploadFileToServer(')))
+
+      String backendPath = 'ru/webim/android/sdk/impl/backend/WebimActionsImpl.java'
+      String backend = readSource(backendPath)
+      String methodStart = '    @Override\n    public void sendFile('
+      String methodEnd = '    @Override\n    public void deleteUploadedFile('
+      int start = backend.indexOf(methodStart)
+      int end = backend.indexOf(methodEnd, start)
+      if (start < 0 || end < start) throw new GradleException('Webim backend upload method changed; review upload patch')
+      String sendFile = backend.substring(start, end)
+      String guidCallback = 'callback.onSuccess(response.getData().getGuid());'
+      if (sendFile.count(guidCallback) != 1) throw new GradleException('Webim GUID callback changed; review upload patch')
+      String uploadFile = sendFile.replace('public void sendFile(', 'public void uploadFileToServer(')
+        .replace(guidCallback, 'callback.onSuccess(ru.webim.android.sdk.impl.InternalUtils.toJson(response.getData()));')
+      writeSource(backendPath, backend.substring(0, end) + uploadFile + backend.substring(end))
+    }
+  }
+}
+android.sourceSets.main.java.srcDir(patchedSources.get().asFile)
+tasks.named('preBuild').configure { dependsOn(generatePatch) }
+dependencies.add('testImplementation', 'junit:junit:4.13.2')

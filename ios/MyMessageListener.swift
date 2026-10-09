@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import WebimClientLibrary
+import WebimMobileSDK
 
 public final class MyMessageListener : RCTEventEmitter, MessageListener {
     public func added(message newMessage: Message,

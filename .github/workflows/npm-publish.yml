@@ -5,7 +5,6 @@ name: Package publish
 
 on:
   release:
-    types: [created]
 
 jobs:
   build:
@@ -16,7 +15,7 @@ jobs:
       - name: 🟢 node
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 22
       - name: Install dependencies
         run: |
           yarn install --cwd example --frozen-lockfile
@@ -26,8 +25,7 @@ jobs:
       - name: Typecheck
         run: yarn typescript
       - name: Tests
-        run: yarn test
-
+        run: yarn test --runInBand
 
   publish-npm:
     needs: build
@@ -36,7 +34,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 22
           registry-url: 'https://registry.npmjs.org'
       - name: Install dependencies
         run: |

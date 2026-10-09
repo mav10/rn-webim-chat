@@ -11,6 +11,7 @@ export type SessionBuilderParams = {
   storeHistoryLocally?: boolean;
   title?: string;
   pushToken?: string;
+  pushSystem?: 'none' | 'apns' | 'fcm';
   prechat?: string;
 };
 
@@ -35,6 +36,22 @@ export interface WebimAttachment {
   url: string;
 }
 
+export interface WebimKeyboardButton {
+  id: string;
+  text: string;
+}
+
+export interface WebimKeyboard {
+  buttons: WebimKeyboardButton[][];
+  state: 'PENDING' | 'COMPLETED' | 'CANCELED' | 'CANCELLED' | string;
+  response?: string;
+}
+
+export interface WebimKeyboardRequest {
+  button?: WebimKeyboardButton;
+  messageId?: string;
+}
+
 type MessageTypeAlias =
   | 'OPERATOR'
   | 'VISITOR'
@@ -55,17 +72,20 @@ export type WebimMessage = {
   type: MessageTypeAlias;
   text: string;
   name: string;
-  status: 'SENT' | 'SENDING';
+  status: 'SENT' | 'SENDING' | 'FAILED';
   read: boolean;
   canEdit: boolean;
-  carReply: boolean;
+  canReply: boolean;
   isEdited: boolean;
   canReact: boolean;
   canChangeReaction: boolean;
   visitorReaction?: string;
   stickerId?: number;
+  keyboard?: WebimKeyboard;
+  keyboardRequest?: WebimKeyboardRequest;
   quote?: Quote;
   attachment?: WebimAttachment;
+  attachments?: WebimAttachment[];
   operatorId?: string;
 };
 
@@ -95,6 +115,25 @@ export type AttachFileResult = {
   extension: string;
 };
 
+export type AttachFilesOptions = {
+  kind?: 'media' | 'documents';
+  maxFiles?: number;
+};
+
+export type SendFilesProgress = {
+  operationId: string;
+  fileIndex: number;
+  completedFiles: number;
+  totalFiles: number;
+  phase: 'uploading' | 'committing' | 'sent';
+};
+
+export type SendFilesOptions = {
+  signal?: AbortSignal;
+  maxFiles?: number;
+  onProgress?: (progress: SendFilesProgress) => void;
+};
+
 export type WebimNativeError = {
   message: string;
   errorCode: WebimNativeErrorType | CustomWebimNativeError;
@@ -106,7 +145,7 @@ export type UpdateMessageListener = (data: {
   from: WebimMessage;
   to: WebimMessage;
 }) => void;
-export type RemoveMessageListener = (data: { msg: WebimMessage }) => void;
+export type RemoveMessageListener = (data: WebimMessage) => void;
 export type DialogClearedListener = () => void;
 export type TokenUpdatedListener = (token: string) => void;
 export type ErrorListener = (error: WebimNativeError) => void;

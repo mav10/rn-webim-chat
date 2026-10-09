@@ -12,13 +12,13 @@ Pod::Spec.new do |s|
   s.authors      = package["author"]
 
   s.swift_version = '5.0'
-  s.platforms    = { :ios => "10.0" }
-  s.source       = { :git => "https://github.com/mav10/rn-webim-chat.git", :tag => "#{s.version}" }
+  s.platforms    = { :ios => "15.1" }
+  s.source       = { :git => "https://github.com/mav10/rn-webim-chat.git", :tag => "v#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,swift}"
 
   s.dependency "React-Core"
-  s.dependency 'WebimClientLibrary'
+  s.dependency 'WebimMobileSDK', '= 4.0.1'
 
   # Don't install the dependencies when we run `pod install` in the old architecture.
   if ENV['RCT_NEW_ARCH_ENABLED'] == '1' then
